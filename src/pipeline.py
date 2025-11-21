@@ -16,6 +16,7 @@ def main():
     parser.add_argument("--index_path", type=str, default="bm25_index.pkl", help="Path to save/load BM25 index")
     parser.add_argument("--force_rebuild", action="store_true", help="Force rebuilding the index even if it exists")
     parser.add_argument("--output_dir", type=str, default="output", help="Directory to save predictions")
+    parser.add_argument("--sample_size", type=int, help="Number of examples to use for testing (debugging)")
     
     args = parser.parse_args()
     
@@ -34,6 +35,11 @@ def main():
             logger.info("Index not found or rebuild forced. Loading dataset...")
             data = load_trivia_qa()
             train_data = data["train"]
+            
+            # Apply sampling if requested
+            if args.sample_size:
+                logger.warning(f"Using a sample of {args.sample_size} examples for debugging.")
+                train_data = train_data.select(range(args.sample_size))
             
             # Prepare corpus from training data
             corpus = prepare_corpus(train_data)
@@ -55,4 +61,3 @@ def main():
             
 if __name__ == "__main__":
     main()
-
