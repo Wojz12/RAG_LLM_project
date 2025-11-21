@@ -1,5 +1,6 @@
 import logging
 from typing import List, Dict, Any
+from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
@@ -90,4 +91,3 @@ def prepare_corpus(dataset, doc_field: str = "entity_pages") -> List[Dict[str, A
             
     logger.info(f"Created corpus with {len(corpus)} chunks from {doc_id_counter} original docs.")
     return corpus
-
