@@ -109,8 +109,8 @@ def main():
         if args.query:
             logger.info(f"Query: {args.query}")
             # Retrieve
-            # Increase top_k to 5 to get more context potential
-            retrieved_docs = retriever.retrieve(args.query, top_k=5)
+            # Use top_k=3 to fit within context window (2048 tokens for TinyLlama)
+            retrieved_docs = retriever.retrieve(args.query, top_k=3)
             
             # Combine context
             # Adding Title helps the model know what the text is about
