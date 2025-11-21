@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Union
 import pickle
 import os
+import re
 from rank_bm25 import BM25Okapi
 from tqdm import tqdm
 import numpy as np
@@ -16,27 +17,10 @@ class BaseRetriever(ABC):
     
     @abstractmethod
     def build_index(self, corpus: List[Dict[str, Any]]):
-        """
-        Builds the retrieval index from the corpus.
-        
-        Args:
-            corpus: List of dictionaries, where each dict represents a document/passage.
-                    Must contain at least 'text' and 'id' keys.
-        """
         pass
 
     @abstractmethod
     def retrieve(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
-        """
-        Retrieves the top_k most relevant documents for a query.
-        
-        Args:
-            query: The question string.
-            top_k: Number of documents to retrieve.
-            
-        Returns:
-            List of retrieved documents with scores.
-        """
         pass
     
     @abstractmethod
@@ -59,24 +43,31 @@ class SparseRetriever(BaseRetriever):
         
     def _tokenize(self, text: str) -> List[str]:
         """
-        Simple whitespace tokenization. Can be upgraded to NLTK/Spacy.
+        Improved tokenization:
+        - Lowercase
+        - Remove punctuation
+        - Split by whitespace
         """
-        return text.lower().split()
+        text = text.lower()
+        # Replace punctuation with space to preserve words
+        text = re.sub(r'[^\w\s]', ' ', text)
+        return text.split()
 
     def build_index(self, corpus: List[Dict[str, Any]]):
         """
         Builds BM25 index from a list of documents.
-        
-        Args:
-            corpus: List of dicts e.g. [{"title": "...", "text": "...", "id": ...}]
         """
         logger.info(f"Building BM25 index for {len(corpus)} passages...")
         self.corpus = corpus
         
         # Tokenize corpus
-        tokenized_corpus = [self._tokenize(doc["text"]) for doc in tqdm(corpus, desc="Tokenizing corpus")]
+        # Use a list comprehension with progress bar
+        tokenized_corpus = []
+        for doc in tqdm(corpus, desc="Tokenizing corpus"):
+             tokenized_corpus.append(self._tokenize(doc["text"]))
         
         # Build BM25
+        logger.info("Initializing BM25Okapi (this may take a while for large corpora)...")
         self.bm25 = BM25Okapi(tokenized_corpus)
         logger.info("BM25 index built successfully.")
 
@@ -87,12 +78,16 @@ class SparseRetriever(BaseRetriever):
         tokenized_query = self._tokenize(query)
         
         # Get top_k scores
-        # BM25Okapi.get_top_n returns the documents themselves, 
-        # but we might want scores too. 
-        # simpler approach: get scores, sort, pick top k.
-        
         scores = self.bm25.get_scores(tokenized_query)
-        top_n_indices = np.argsort(scores)[::-1][:top_k]
+        
+        # Optimize sorting: use argpartition for large arrays instead of full sort
+        # We only need top_k
+        if len(scores) > top_k:
+            top_n_indices = np.argpartition(scores, -top_k)[-top_k:]
+            # The top_k are not sorted within themselves, so sort them now
+            top_n_indices = top_n_indices[np.argsort(scores[top_n_indices])][::-1]
+        else:
+            top_n_indices = np.argsort(scores)[::-1]
         
         results = []
         for idx in top_n_indices:
@@ -129,4 +124,3 @@ class SparseRetriever(BaseRetriever):
         self.bm25 = data["bm25"]
         self.corpus = data["corpus"]
         logger.info(f"Index loaded with {len(self.corpus)} documents.")
-

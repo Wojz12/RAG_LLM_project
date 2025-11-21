@@ -19,7 +19,7 @@ def main():
     parser.add_argument("--output_dir", type=str, default="output", help="Directory to save predictions")
     parser.add_argument("--sample_size", type=int, help="Number of examples to use for testing (debugging)")
     parser.add_argument("--predict_split", type=str, choices=["train", "validation", "test"], help="Run predictions on a specific split")
-    parser.add_argument("--model_name", type=str, default="HuggingFaceH4/zephyr-7b-beta", help="HuggingFace model name for generation")
+    parser.add_argument("--model_name", type=str, default="TinyLlama/TinyLlama-1.1B-Chat-v1.0", help="HuggingFace model name for generation")
     
     args = parser.parse_args()
     
@@ -28,15 +28,23 @@ def main():
     
     # Initialize Retriever (Common to both modes)
     retriever = SparseRetriever()
+    
+    # Logic for Loading/Building Index
     if os.path.exists(args.index_path) and not args.force_rebuild:
-        retriever.load_index(args.index_path)
-    else:
+        try:
+            retriever.load_index(args.index_path)
+        except Exception as e:
+            logger.error(f"Failed to load index: {e}. Rebuilding...")
+            args.force_rebuild = True
+            
+    if args.force_rebuild or not os.path.exists(args.index_path):
         logger.info("Index not found or rebuild forced. Loading dataset...")
         data = load_trivia_qa()
         train_data = data["train"]
         if args.sample_size:
             logger.warning(f"Using a sample of {args.sample_size} examples for debugging.")
             train_data = train_data.select(range(args.sample_size))
+        
         corpus = prepare_corpus(train_data)
         retriever.build_index(corpus)
         retriever.save_index(args.index_path)
@@ -47,7 +55,7 @@ def main():
         # 1. Single Query Mode
         if args.query:
             logger.info(f"Query: {args.query}")
-            results = retriever.retrieve(args.query, top_k=3)
+            results = retriever.retrieve(args.query, top_k=5)
             for i, res in enumerate(results):
                 print(f"\nRank {i+1} (Score: {res['score']:.4f}):")
                 print(f"Title: {res['title']}")
@@ -94,16 +102,22 @@ def main():
         logger.info("Running RAG Generation Mode...")
         from src.generator import RAGGenerator
         
+        # Initialize Generator
         generator = RAGGenerator(model_name=args.model_name)
         
         # 1. Single Query Mode
         if args.query:
             logger.info(f"Query: {args.query}")
             # Retrieve
-            retrieved_docs = retriever.retrieve(args.query, top_k=3)
-            context = "\n\n".join([doc["text"] for doc in retrieved_docs])
+            # Increase top_k to 5 to get more context potential
+            retrieved_docs = retriever.retrieve(args.query, top_k=5)
             
-            print(f"\nContext (Top-3):\n{context[:500]}...\n")
+            # Combine context
+            # Adding Title helps the model know what the text is about
+            context_pieces = [f"Document: {doc['title']}\nContent: {doc['text']}" for doc in retrieved_docs]
+            context = "\n\n".join(context_pieces)
+            
+            print(f"\nContext (Top-5):\n{context[:500]}...\n")
             
             # Generate
             answer = generator.generate_answer(args.query, context)
@@ -126,8 +140,9 @@ def main():
                 q_id = example["question_id"]
                 
                 # Retrieve
-                results = retriever.retrieve(question, top_k=3)
-                context = "\n\n".join([doc["text"] for doc in results])
+                results = retriever.retrieve(question, top_k=5)
+                context_pieces = [f"Document: {doc['title']}\nContent: {doc['text']}" for doc in results]
+                context = "\n\n".join(context_pieces)
                 
                 # Generate
                 predicted_answer = generator.generate_answer(question, context)
