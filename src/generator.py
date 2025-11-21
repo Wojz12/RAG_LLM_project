@@ -1,135 +1,116 @@
 import torch
-from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
+from transformers import AutoTokenizer, AutoModelForCausalLM
 import logging
 
 logger = logging.getLogger(__name__)
 
 class RAGGenerator:
     """
-    RAG Generator using a Quantized LLM (e.g., Llama-3-8B or Qwen).
+    RAG Generator using a lightweight, instruction-tuned LLM (TinyLlama/Qwen).
+    Optimized for CPU/GPU compatibility without requiring bitsandbytes (4-bit) if incompatible.
     """
-    def __init__(self, model_name: str = "HuggingFaceH4/zephyr-7b-beta"):
+    def __init__(self, model_name: str = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"):
         self.model_name = model_name
         self.tokenizer = None
         self.model = None
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self._load_model()
 
     def _load_model(self):
         """
-        Loads the model with 4-bit quantization.
+        Loads the model. Tries to use GPU with float16 if available, otherwise float32 on CPU.
+        Avoids bitsandbytes 4-bit quantization to ensure stability on Python 3.14+.
         """
-        logger.info(f"Loading LLM: {self.model_name}...")
+        logger.info(f"Loading LLM: {self.model_name} on {self.device}...")
         
-        bnb_config = BitsAndBytesConfig(
-            load_in_4bit=True,
-            bnb_4bit_use_double_quant=True,
-            bnb_4bit_quant_type="nf4",
-            bnb_4bit_compute_dtype=torch.bfloat16
-        )
-
         try:
-            # Attempt to load with 4-bit quantization (Preferred)
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+            
+            # TinyLlama needs a pad token
+            if self.tokenizer.pad_token is None:
+                self.tokenizer.pad_token = self.tokenizer.eos_token
+            
+            # Load model
+            # For 1.1B model, standard fp32 takes ~4GB RAM, fp16 takes ~2GB.
+            # This fits easily in most environments.
+            dtype = torch.float16 if self.device == "cuda" else torch.float32
+            
             self.model = AutoModelForCausalLM.from_pretrained(
                 self.model_name,
-                quantization_config=bnb_config,
-                device_map="auto"
+                torch_dtype=dtype,
+                device_map=self.device
             )
-            logger.info("LLM loaded successfully with 4-bit quantization.")
+            logger.info("LLM loaded successfully.")
             
         except Exception as e:
-            logger.error(f"Failed to load 4-bit LLM: {e}")
-            logger.warning("Environment does not support 4-bit quantization or GPU is missing (likely Python 3.14+ incompatibility with bitsandbytes).")
-            logger.warning("Falling back to 'gpt2' (CPU-friendly) to demonstrate RAG pipeline functionality.")
-            
-            try:
-                self.model_name = "gpt2"
-                self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-                # GPT-2 doesn't have a pad token by default
-                self.tokenizer.pad_token = self.tokenizer.eos_token
-                self.model = AutoModelForCausalLM.from_pretrained(self.model_name)
-                logger.info("Fallback LLM (gpt2) loaded successfully.")
-            except Exception as e2:
-                logger.critical(f"Failed to load fallback model: {e2}")
-                raise e2
+            logger.error(f"Failed to load LLM: {e}")
+            raise e
 
-    def generate_answer(self, query: str, context: str, max_new_tokens: int = 50) -> str:
+    def generate_answer(self, query: str, context: str, max_new_tokens: int = 150) -> str:
         """
         Generates an answer given the query and retrieved context.
         """
-        # Determine max length safe for the model
-        model_max_len = getattr(self.tokenizer, "model_max_length", 1024)
-        # HuggingFace sometimes returns huge numbers for models without explicit limits
-        if model_max_len > 4096: 
-            model_max_len = 4096 # Cap at reasonable default if unknown
-        if self.model_name == "gpt2":
-            model_max_len = 1024
-            
-        # Format naive prompt to check length
-        prompt = self._format_prompt(query, context)
-        inputs = self.tokenizer(prompt, return_tensors="pt")
+        # Create prompt using the model's chat template
+        messages = [
+            {"role": "system", "content": "You are a helpful assistant. Answer the question using only the provided context. If the answer is not in the context, say 'I don't know'."},
+            {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {query}"}
+        ]
+        
+        # Apply chat template (handles special tokens for TinyLlama/Zephyr/etc.)
+        prompt = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        
+        # Tokenize and Truncate logic
+        # Max context window for TinyLlama is 2048
+        max_model_len = 2048
+        
+        inputs = self.tokenizer(prompt, return_tensors="pt", add_special_tokens=False)
         input_len = inputs["input_ids"].shape[1]
         
-        # If too long, truncate context
-        if input_len > (model_max_len - max_new_tokens):
-            # Calculate how much space we have for context
-            # Length of prompt without context
-            base_prompt = self._format_prompt(query, "")
-            base_len = self.tokenizer(base_prompt, return_tensors="pt")["input_ids"].shape[1]
+        if input_len > (max_model_len - max_new_tokens):
+            # If prompt is too long, we need to truncate the context part.
+            # This is complex with chat templates. simpler heuristic:
+            # Re-construct prompt with truncated context string.
             
-            allowed_context_len = model_max_len - max_new_tokens - base_len - 10 # buffer
+            # Estimate safe length: Max - System/User overhead (approx 100) - Question len - Output buffer
+            q_len = len(self.tokenizer(query)["input_ids"])
+            allowed_ctx_len = max_model_len - max_new_tokens - q_len - 200
             
-            # Tokenize context
-            context_tokens = self.tokenizer(context)["input_ids"]
-            if len(context_tokens) > allowed_context_len:
-                # Truncate
-                context = self.tokenizer.decode(context_tokens[:allowed_context_len])
-                # Re-create prompt
-                prompt = self._format_prompt(query, context)
-        
+            if allowed_ctx_len < 50: allowed_ctx_len = 50
+            
+            # Truncate context
+            ctx_tokens = self.tokenizer(context)["input_ids"]
+            if len(ctx_tokens) > allowed_ctx_len:
+                ctx_tokens = ctx_tokens[:allowed_ctx_len]
+                context = self.tokenizer.decode(ctx_tokens)
+                
+                # Re-build prompt
+                messages[1]["content"] = f"Context:\n{context}\n\nQuestion: {query}"
+                prompt = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+
         # Final Tokenization
-        inputs = self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
+        inputs = self.tokenizer(prompt, return_tensors="pt").to(self.device)
         
         with torch.no_grad():
             outputs = self.model.generate(
                 **inputs,
                 max_new_tokens=max_new_tokens,
-                do_sample=False, # Deterministic for evaluation
-                temperature=None, # Explicitly set to None/Default if do_sample is False
+                do_sample=False, # Deterministic
+                temperature=None,
                 top_p=None,
-                pad_token_id=self.tokenizer.eos_token_id
+                pad_token_id=self.tokenizer.pad_token_id
             )
             
         generated_text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
         
-        # Post-process to extract just the answer part
-        answer = self._extract_answer(generated_text, prompt)
-        return answer
-
-    def _format_prompt(self, query: str, context: str) -> str:
-        """
-        Formats the prompt for the LLM.
-        """
-        # Simple RAG Prompt
-        prompt = f"""You are a helpful assistant. Answer the question using only the provided context.
-If the answer is not in the context, say "I don't know".
-
-Context:
-{context}
-
-Question: {query}
-
-Answer:"""
-        return prompt
-
-    def _extract_answer(self, generated_text: str, prompt: str) -> str:
-        """
-        Extracts the answer from the full generated text.
-        """
-        # If the model echoes the prompt, strip it.
-        # GPT-2 often echoes.
-        if generated_text.startswith(prompt):
-            return generated_text[len(prompt):].strip()
+        # Extract answer: The model output includes the prompt + response.
+        # We need to parse it. TinyLlama usually outputs just the response if using apply_chat_template correctly?
+        # No, generate() returns full sequence.
         
-        # Fallback
-        return generated_text.replace(prompt, "").strip()
+        # Find the start of the assistant response
+        # Using simple string splitting based on the last prompt part might be fragile.
+        # A robust way is to slice the output tokens.
+        
+        response_tokens = outputs[0][inputs["input_ids"].shape[1]:]
+        answer = self.tokenizer.decode(response_tokens, skip_special_tokens=True)
+        
+        return answer.strip()
