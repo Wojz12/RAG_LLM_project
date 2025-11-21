@@ -67,27 +67,71 @@ def prepare_corpus(dataset, doc_field: str = "entity_pages") -> List[Dict[str, A
     
     for example in tqdm(dataset, desc="Chunking documents"):
         # TriviaQA has 'entity_pages' which contains the Wikipedia content
-        pages = example.get(doc_field, [])
+        # However, the structure can sometimes be complex or fields might be missing.
+        # For 'rc.wikipedia', entity_pages is a Sequence of Structs.
+        # In datasets, this usually comes out as a dict of lists:
+        # {'doc_source': ['...'], 'filename': ['...'], 'title': ['...'], 'wiki_context': ['...']}
         
-        for page in pages:
-            title = page.get("title", "")
-            # wiki_context contains the text
-            text = page.get("wiki_context", "")
-            
-            if not text:
-                continue
-            
-            chunks = chunk_text(text)
-            
-            for i, chunk in enumerate(chunks):
-                corpus.append({
-                    "id": f"{doc_id_counter}_{i}",
-                    "text": chunk,
-                    "title": title,
-                    "source_id": example["question_id"] # Tracking where this came from
-                })
-            
-            doc_id_counter += 1
+        pages_struct = example.get(doc_field, {})
+        
+        # If pages_struct is empty or None
+        if not pages_struct:
+            continue
+
+        # Depending on datasets version, it might be a list of dicts OR a dict of lists.
+        # The error "AttributeError: 'str' object has no attribute 'get'" suggests we might be iterating over keys of a dict
+        # or accessing it wrongly. 
+        
+        # In standard TriviaQA RC via HF datasets:
+        # entity_pages = {'title': ['Title A', 'Title B'], 'wiki_context': ['Text A', 'Text B'], ...}
+        
+        titles = pages_struct.get("title", [])
+        contexts = pages_struct.get("wiki_context", [])
+        
+        # Ensure we iterate correctly. 
+        # If it's a list of dicts (less common in recent HF datasets for this struct), we'd do differently.
+        # But the error suggests we treated a struct (dict) as a list of items?
+        # Actually, if we did `pages = example.get(doc_field, [])` and pages is a dict, iterating it gives keys (strs).
+        # Then `page.get()` fails on the string key.
+        
+        if isinstance(pages_struct, dict):
+             # It is a dict of lists
+             count = len(titles)
+             for i in range(count):
+                 title = titles[i]
+                 text = contexts[i]
+                 
+                 if not text:
+                     continue
+                
+                 chunks = chunk_text(text)
+                 for j, chunk in enumerate(chunks):
+                    corpus.append({
+                        "id": f"{doc_id_counter}_{j}",
+                        "text": chunk,
+                        "title": title,
+                        "source_id": example["question_id"]
+                    })
+                 doc_id_counter += 1
+        
+        elif isinstance(pages_struct, list):
+            # It is a list of dicts (older HF version or different config)
+            for page in pages_struct:
+                title = page.get("title", "")
+                text = page.get("wiki_context", "")
+                
+                if not text:
+                    continue
+                
+                chunks = chunk_text(text)
+                for j, chunk in enumerate(chunks):
+                    corpus.append({
+                        "id": f"{doc_id_counter}_{j}",
+                        "text": chunk,
+                        "title": title,
+                        "source_id": example["question_id"]
+                    })
+                doc_id_counter += 1
             
     logger.info(f"Created corpus with {len(corpus)} chunks from {doc_id_counter} original docs.")
     return corpus
