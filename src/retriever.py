@@ -4,9 +4,23 @@ from typing import List, Dict, Any, Union
 import pickle
 import os
 import re
-from rank_bm25 import BM25Okapi
 from tqdm import tqdm
 import numpy as np
+import torch
+
+# Optional import for BM25 to avoid crashes if not used but kept for backward compatibility
+try:
+    from rank_bm25 import BM25Okapi
+except ImportError:
+    BM25Okapi = None
+
+# Imports for Dense Retrieval
+try:
+    from sentence_transformers import SentenceTransformer
+    import faiss
+except ImportError:
+    SentenceTransformer = None
+    faiss = None
 
 logger = logging.getLogger(__name__)
 
@@ -38,53 +52,34 @@ class SparseRetriever(BaseRetriever):
     """
     
     def __init__(self):
+        if BM25Okapi is None:
+            raise ImportError("rank_bm25 is not installed.")
         self.bm25 = None
-        self.corpus = [] # Store full corpus to retrieve text later
+        self.corpus = [] 
         
     def _tokenize(self, text: str) -> List[str]:
-        """
-        Improved tokenization:
-        - Lowercase
-        - Remove punctuation
-        - Split by whitespace
-        """
         text = text.lower()
-        # Replace punctuation with space to preserve words
         text = re.sub(r'[^\w\s]', ' ', text)
         return text.split()
 
     def build_index(self, corpus: List[Dict[str, Any]]):
-        """
-        Builds BM25 index from a list of documents.
-        """
         logger.info(f"Building BM25 index for {len(corpus)} passages...")
         self.corpus = corpus
-        
-        # Tokenize corpus
-        # Use a list comprehension with progress bar
         tokenized_corpus = []
         for doc in tqdm(corpus, desc="Tokenizing corpus"):
              tokenized_corpus.append(self._tokenize(doc["text"]))
-        
-        # Build BM25
-        logger.info("Initializing BM25Okapi (this may take a while for large corpora)...")
         self.bm25 = BM25Okapi(tokenized_corpus)
         logger.info("BM25 index built successfully.")
 
     def retrieve(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
         if not self.bm25:
-            raise ValueError("Index not built! Call build_index() or load_index() first.")
+            raise ValueError("Index not built!")
         
         tokenized_query = self._tokenize(query)
-        
-        # Get top_k scores
         scores = self.bm25.get_scores(tokenized_query)
         
-        # Optimize sorting: use argpartition for large arrays instead of full sort
-        # We only need top_k
         if len(scores) > top_k:
             top_n_indices = np.argpartition(scores, -top_k)[-top_k:]
-            # The top_k are not sorted within themselves, so sort them now
             top_n_indices = top_n_indices[np.argsort(scores[top_n_indices])][::-1]
         else:
             top_n_indices = np.argsort(scores)[::-1]
@@ -94,33 +89,126 @@ class SparseRetriever(BaseRetriever):
             doc = self.corpus[idx].copy()
             doc["score"] = float(scores[idx])
             results.append(doc)
-            
         return results
 
     def save_index(self, path: str):
-        """
-        Saves both the BM25 object and the corpus to a pickle file.
-        """
         logger.info(f"Saving index to {path}...")
-        data = {
-            "bm25": self.bm25,
-            "corpus": self.corpus
-        }
+        data = {"bm25": self.bm25, "corpus": self.corpus}
         with open(path, "wb") as f:
             pickle.dump(data, f)
         logger.info("Index saved.")
 
     def load_index(self, path: str):
-        """
-        Loads the index from a pickle file.
-        """
         logger.info(f"Loading index from {path}...")
         if not os.path.exists(path):
             raise FileNotFoundError(f"Index file {path} not found.")
-            
         with open(path, "rb") as f:
             data = pickle.load(f)
-        
         self.bm25 = data["bm25"]
         self.corpus = data["corpus"]
         logger.info(f"Index loaded with {len(self.corpus)} documents.")
+
+
+class DenseRetriever(BaseRetriever):
+    """
+    Dense Retriever using FAISS and Sentence Transformers.
+    """
+    def __init__(self, model_name: str = "all-MiniLM-L6-v2"):
+        if SentenceTransformer is None or faiss is None:
+            raise ImportError("sentence-transformers and faiss-cpu are required for DenseRetriever.")
+            
+        self.model_name = model_name
+        self.encoder = SentenceTransformer(model_name)
+        self.index = None
+        self.corpus = []
+        
+        # Use GPU for embedding if available (SentenceTransformer handles this mostly, but we check)
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.encoder.to(self.device)
+
+    def build_index(self, corpus: List[Dict[str, Any]]):
+        """
+        Encodes corpus and builds FAISS index.
+        """
+        logger.info(f"Encoding {len(corpus)} passages with {self.model_name}...")
+        self.corpus = corpus
+        
+        texts = [doc["text"] for doc in corpus]
+        
+        # Encode in batches
+        embeddings = self.encoder.encode(
+            texts, 
+            batch_size=32, 
+            show_progress_bar=True, 
+            convert_to_numpy=True,
+            normalize_embeddings=True # Important for cosine similarity
+        )
+        
+        # Initialize FAISS Index
+        # Inner Product (IP) corresponds to Cosine Similarity if normalized
+        dimension = embeddings.shape[1]
+        self.index = faiss.IndexFlatIP(dimension)
+        self.index.add(embeddings)
+        
+        logger.info(f"FAISS index built with {self.index.ntotal} vectors.")
+
+    def retrieve(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
+        if not self.index:
+            raise ValueError("Index not built!")
+            
+        # Encode query
+        query_embedding = self.encoder.encode(
+            [query], 
+            convert_to_numpy=True, 
+            normalize_embeddings=True
+        )
+        
+        # Search
+        # D = distances (scores), I = indices
+        D, I = self.index.search(query_embedding, top_k)
+        
+        results = []
+        # I[0] contains indices for the first (and only) query
+        for rank, idx in enumerate(I[0]):
+            if idx == -1: continue # FAISS padding
+            doc = self.corpus[idx].copy()
+            doc["score"] = float(D[0][rank])
+            results.append(doc)
+            
+        return results
+
+    def save_index(self, path: str):
+        """
+        Saves FAISS index and corpus separately.
+        Path should be the base name/dir.
+        """
+        logger.info(f"Saving Dense index to {path}...")
+        
+        # Save FAISS index
+        index_file = path + ".faiss"
+        faiss.write_index(self.index, index_file)
+        
+        # Save corpus and metadata
+        meta_file = path + ".meta.pkl"
+        with open(meta_file, "wb") as f:
+            pickle.dump({"corpus": self.corpus, "model_name": self.model_name}, f)
+            
+        logger.info("Dense Index saved.")
+
+    def load_index(self, path: str):
+        logger.info(f"Loading Dense index from {path}...")
+        
+        index_file = path + ".faiss"
+        meta_file = path + ".meta.pkl"
+        
+        if not os.path.exists(index_file) or not os.path.exists(meta_file):
+             raise FileNotFoundError(f"Index files not found at {path} (.faiss/.meta.pkl)")
+             
+        self.index = faiss.read_index(index_file)
+        
+        with open(meta_file, "rb") as f:
+            data = pickle.load(f)
+            self.corpus = data["corpus"]
+            # We assume model_name is compatible or same
+            
+        logger.info(f"Dense Index loaded with {len(self.corpus)} documents.")
