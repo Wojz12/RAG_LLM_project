@@ -8,3 +8,4 @@ scikit-learn
 tqdm
 faiss-cpu
 sentence-transformers
+pyserini==0.21.0
