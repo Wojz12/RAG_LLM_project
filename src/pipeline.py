@@ -6,6 +6,8 @@ from tqdm import tqdm
 from src.data_loader import load_trivia_qa
 from src.retriever import SparseRetriever
 from src.utils import prepare_corpus
+from src.re_ranker import Reranker
+from src.bm25_retriever import BM25Retriever
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -28,6 +30,8 @@ def main():
     
     # Initialize Retriever (Common to both modes)
     retriever = SparseRetriever()
+    reranker = Reranker()
+    bm25 = BM25Retriever("bm25_index")
     
     # Logic for Loading/Building Index
     if os.path.exists(args.index_path) and not args.force_rebuild:
@@ -108,19 +112,37 @@ def main():
         # 1. Single Query Mode
         if args.query:
             logger.info(f"Query: {args.query}")
-            # Retrieve
-            # Use top_k=3 to fit within context window (2048 tokens for TinyLlama)
-            retrieved_docs = retriever.retrieve(args.query, top_k=3)
+            # Hybrid Retrieval: Dense + BM25 + Reranking
+            dense_docs = retriever.retrieve(args.query, top_k=20)
+            bm25_docs = bm25.search(args.query, k=20)
             
-            # Combine context
-            # Adding Title helps the model know what the text is about
-            context_pieces = [f"Document: {doc['title']}\nContent: {doc['text']}" for doc in retrieved_docs]
-            context = "\n\n".join(context_pieces)
+            # Combine and deduplicate
+            dense_texts = [doc['text'] for doc in dense_docs]
+            bm25_texts = [doc['text'] if isinstance(doc, dict) else doc for doc in bm25_docs]
+            combined = list(set(dense_texts + bm25_texts))
             
-            print(f"\nContext (Top-5):\n{context[:500]}...\n")
+            # Rerank
+            contexts = reranker.rerank(args.query, combined, top_k=5)
+            
+            print(f"\nContext (Top-5):\n{str(contexts)[:500]}...\n")
+            
+            # Hard-grounded prompt
+            prompt = f"""
+You must answer ONLY using the provided context below.
+If the answer is not in the context, respond exactly with:
+"I don't know from the given documents."
+
+Context:
+{contexts}
+
+Question:
+{args.query}
+
+Answer:
+"""
             
             # Generate
-            answer = generator.generate_answer(args.query, context)
+            answer = generator.generate_answer(args.query, prompt)
             print(f"\nGenerated Answer: {answer}")
             
         # 2. Batch Prediction Mode
@@ -139,13 +161,35 @@ def main():
                 question = example["question"]
                 q_id = example["question_id"]
                 
-                # Retrieve
-                results = retriever.retrieve(question, top_k=5)
-                context_pieces = [f"Document: {doc['title']}\nContent: {doc['text']}" for doc in results]
-                context = "\n\n".join(context_pieces)
+                # Hybrid Retrieval: Dense + BM25 + Reranking
+                dense_docs = retriever.retrieve(question, top_k=20)
+                bm25_docs = bm25.search(question, k=20)
+                
+                # Combine and deduplicate
+                dense_texts = [doc['text'] for doc in dense_docs]
+                bm25_texts = [doc['text'] if isinstance(doc, dict) else doc for doc in bm25_docs]
+                combined = list(set(dense_texts + bm25_texts))
+                
+                # Rerank
+                contexts = reranker.rerank(question, combined, top_k=5)
+                
+                # Hard-grounded prompt
+                prompt = f"""
+You must answer ONLY using the provided context below.
+If the answer is not in the context, respond exactly with:
+"I don't know from the given documents."
+
+Context:
+{contexts}
+
+Question:
+{question}
+
+Answer:
+"""
                 
                 # Generate
-                predicted_answer = generator.generate_answer(question, context)
+                predicted_answer = generator.generate_answer(question, prompt)
                 
                 predictions.append({
                     "id": q_id,
