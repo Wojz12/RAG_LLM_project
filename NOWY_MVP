@@ -1,0 +1,759 @@
+{
+  "nbformat": 4,
+  "nbformat_minor": 0,
+  "metadata": {
+    "colab": {
+      "provenance": [],
+      "gpuType": "T4",
+      "authorship_tag": "ABX9TyNEQUFVOwwnFMPujoxPSAIr",
+      "include_colab_link": true
+    },
+    "kernelspec": {
+      "name": "python3",
+      "display_name": "Python 3"
+    },
+    "language_info": {
+      "name": "python"
+    },
+    "accelerator": "GPU",
+    "widgets": {
+      "application/vnd.jupyter.widget-state+json": {
+        "ea582f612221490b898276776c06c990": {
+          "model_module": "@jupyter-widgets/controls",
+          "model_name": "HBoxModel",
+          "model_module_version": "1.5.0",
+          "state": {
+            "_dom_classes": [],
+            "_model_module": "@jupyter-widgets/controls",
+            "_model_module_version": "1.5.0",
+            "_model_name": "HBoxModel",
+            "_view_count": null,
+            "_view_module": "@jupyter-widgets/controls",
+            "_view_module_version": "1.5.0",
+            "_view_name": "HBoxView",
+            "box_style": "",
+            "children": [
+              "IPY_MODEL_0b8837d9df1e41b0a8031e093155d0d8",
+              "IPY_MODEL_6c9f300102d24e0fa163262f018df0b1",
+              "IPY_MODEL_c71800ccc878477f8c65a1324256549d"
+            ],
+            "layout": "IPY_MODEL_d2e7c09538024bc9bd6c9c4456ea9758"
+          }
+        },
+        "0b8837d9df1e41b0a8031e093155d0d8": {
+          "model_module": "@jupyter-widgets/controls",
+          "model_name": "HTMLModel",
+          "model_module_version": "1.5.0",
+          "state": {
+            "_dom_classes": [],
+            "_model_module": "@jupyter-widgets/controls",
+            "_model_module_version": "1.5.0",
+            "_model_name": "HTMLModel",
+            "_view_count": null,
+            "_view_module": "@jupyter-widgets/controls",
+            "_view_module_version": "1.5.0",
+            "_view_name": "HTMLView",
+            "description": "",
+            "description_tooltip": null,
+            "layout": "IPY_MODEL_757855566d4f4b6abfcc4295910c3ff5",
+            "placeholder": "​",
+            "style": "IPY_MODEL_8d3f5a6f91c64e3d96ca13ac6b18c8ee",
+            "value": "Resolving data files: 100%"
+          }
+        },
+        "6c9f300102d24e0fa163262f018df0b1": {
+          "model_module": "@jupyter-widgets/controls",
+          "model_name": "FloatProgressModel",
+          "model_module_version": "1.5.0",
+          "state": {
+            "_dom_classes": [],
+            "_model_module": "@jupyter-widgets/controls",
+            "_model_module_version": "1.5.0",
+            "_model_name": "FloatProgressModel",
+            "_view_count": null,
+            "_view_module": "@jupyter-widgets/controls",
+            "_view_module_version": "1.5.0",
+            "_view_name": "ProgressView",
+            "bar_style": "success",
+            "description": "",
+            "description_tooltip": null,
+            "layout": "IPY_MODEL_e15e5d12ccd644a489a4914b55722615",
+            "max": 26,
+            "min": 0,
+            "orientation": "horizontal",
+            "style": "IPY_MODEL_f550492bdd934774ad044013d1b252d7",
+            "value": 26
+          }
+        },
+        "c71800ccc878477f8c65a1324256549d": {
+          "model_module": "@jupyter-widgets/controls",
+          "model_name": "HTMLModel",
+          "model_module_version": "1.5.0",
+          "state": {
+            "_dom_classes": [],
+            "_model_module": "@jupyter-widgets/controls",
+            "_model_module_version": "1.5.0",
+            "_model_name": "HTMLModel",
+            "_view_count": null,
+            "_view_module": "@jupyter-widgets/controls",
+            "_view_module_version": "1.5.0",
+            "_view_name": "HTMLView",
+            "description": "",
+            "description_tooltip": null,
+            "layout": "IPY_MODEL_a625b0d871e146a08eb0690919b5e9ee",
+            "placeholder": "​",
+            "style": "IPY_MODEL_17cc164abd144e22a91627e3537113ff",
+            "value": " 26/26 [00:02&lt;00:00,  1.25s/it]"
+          }
+        },
+        "d2e7c09538024bc9bd6c9c4456ea9758": {
+          "model_module": "@jupyter-widgets/base",
+          "model_name": "LayoutModel",
+          "model_module_version": "1.2.0",
+          "state": {
+            "_model_module": "@jupyter-widgets/base",
+            "_model_module_version": "1.2.0",
+            "_model_name": "LayoutModel",
+            "_view_count": null,
+            "_view_module": "@jupyter-widgets/base",
+            "_view_module_version": "1.2.0",
+            "_view_name": "LayoutView",
+            "align_content": null,
+            "align_items": null,
+            "align_self": null,
+            "border": null,
+            "bottom": null,
+            "display": null,
+            "flex": null,
+            "flex_flow": null,
+            "grid_area": null,
+            "grid_auto_columns": null,
+            "grid_auto_flow": null,
+            "grid_auto_rows": null,
+            "grid_column": null,
+            "grid_gap": null,
+            "grid_row": null,
+            "grid_template_areas": null,
+            "grid_template_columns": null,
+            "grid_template_rows": null,
+            "height": null,
+            "justify_content": null,
+            "justify_items": null,
+            "left": null,
+            "margin": null,
+            "max_height": null,
+            "max_width": null,
+            "min_height": null,
+            "min_width": null,
+            "object_fit": null,
+            "object_position": null,
+            "order": null,
+            "overflow": null,
+            "overflow_x": null,
+            "overflow_y": null,
+            "padding": null,
+            "right": null,
+            "top": null,
+            "visibility": null,
+            "width": null
+          }
+        },
+        "757855566d4f4b6abfcc4295910c3ff5": {
+          "model_module": "@jupyter-widgets/base",
+          "model_name": "LayoutModel",
+          "model_module_version": "1.2.0",
+          "state": {
+            "_model_module": "@jupyter-widgets/base",
+            "_model_module_version": "1.2.0",
+            "_model_name": "LayoutModel",
+            "_view_count": null,
+            "_view_module": "@jupyter-widgets/base",
+            "_view_module_version": "1.2.0",
+            "_view_name": "LayoutView",
+            "align_content": null,
+            "align_items": null,
+            "align_self": null,
+            "border": null,
+            "bottom": null,
+            "display": null,
+            "flex": null,
+            "flex_flow": null,
+            "grid_area": null,
+            "grid_auto_columns": null,
+            "grid_auto_flow": null,
+            "grid_auto_rows": null,
+            "grid_column": null,
+            "grid_gap": null,
+            "grid_row": null,
+            "grid_template_areas": null,
+            "grid_template_columns": null,
+            "grid_template_rows": null,
+            "height": null,
+            "justify_content": null,
+            "justify_items": null,
+            "left": null,
+            "margin": null,
+            "max_height": null,
+            "max_width": null,
+            "min_height": null,
+            "min_width": null,
+            "object_fit": null,
+            "object_position": null,
+            "order": null,
+            "overflow": null,
+            "overflow_x": null,
+            "overflow_y": null,
+            "padding": null,
+            "right": null,
+            "top": null,
+            "visibility": null,
+            "width": null
+          }
+        },
+        "8d3f5a6f91c64e3d96ca13ac6b18c8ee": {
+          "model_module": "@jupyter-widgets/controls",
+          "model_name": "DescriptionStyleModel",
+          "model_module_version": "1.5.0",
+          "state": {
+            "_model_module": "@jupyter-widgets/controls",
+            "_model_module_version": "1.5.0",
+            "_model_name": "DescriptionStyleModel",
+            "_view_count": null,
+            "_view_module": "@jupyter-widgets/base",
+            "_view_module_version": "1.2.0",
+            "_view_name": "StyleView",
+            "description_width": ""
+          }
+        },
+        "e15e5d12ccd644a489a4914b55722615": {
+          "model_module": "@jupyter-widgets/base",
+          "model_name": "LayoutModel",
+          "model_module_version": "1.2.0",
+          "state": {
+            "_model_module": "@jupyter-widgets/base",
+            "_model_module_version": "1.2.0",
+            "_model_name": "LayoutModel",
+            "_view_count": null,
+            "_view_module": "@jupyter-widgets/base",
+            "_view_module_version": "1.2.0",
+            "_view_name": "LayoutView",
+            "align_content": null,
+            "align_items": null,
+            "align_self": null,
+            "border": null,
+            "bottom": null,
+            "display": null,
+            "flex": null,
+            "flex_flow": null,
+            "grid_area": null,
+            "grid_auto_columns": null,
+            "grid_auto_flow": null,
+            "grid_auto_rows": null,
+            "grid_column": null,
+            "grid_gap": null,
+            "grid_row": null,
+            "grid_template_areas": null,
+            "grid_template_columns": null,
+            "grid_template_rows": null,
+            "height": null,
+            "justify_content": null,
+            "justify_items": null,
+            "left": null,
+            "margin": null,
+            "max_height": null,
+            "max_width": null,
+            "min_height": null,
+            "min_width": null,
+            "object_fit": null,
+            "object_position": null,
+            "order": null,
+            "overflow": null,
+            "overflow_x": null,
+            "overflow_y": null,
+            "padding": null,
+            "right": null,
+            "top": null,
+            "visibility": null,
+            "width": null
+          }
+        },
+        "f550492bdd934774ad044013d1b252d7": {
+          "model_module": "@jupyter-widgets/controls",
+          "model_name": "ProgressStyleModel",
+          "model_module_version": "1.5.0",
+          "state": {
+            "_model_module": "@jupyter-widgets/controls",
+            "_model_module_version": "1.5.0",
+            "_model_name": "ProgressStyleModel",
+            "_view_count": null,
+            "_view_module": "@jupyter-widgets/base",
+            "_view_module_version": "1.2.0",
+            "_view_name": "StyleView",
+            "bar_color": null,
+            "description_width": ""
+          }
+        },
+        "a625b0d871e146a08eb0690919b5e9ee": {
+          "model_module": "@jupyter-widgets/base",
+          "model_name": "LayoutModel",
+          "model_module_version": "1.2.0",
+          "state": {
+            "_model_module": "@jupyter-widgets/base",
+            "_model_module_version": "1.2.0",
+            "_model_name": "LayoutModel",
+            "_view_count": null,
+            "_view_module": "@jupyter-widgets/base",
+            "_view_module_version": "1.2.0",
+            "_view_name": "LayoutView",
+            "align_content": null,
+            "align_items": null,
+            "align_self": null,
+            "border": null,
+            "bottom": null,
+            "display": null,
+            "flex": null,
+            "flex_flow": null,
+            "grid_area": null,
+            "grid_auto_columns": null,
+            "grid_auto_flow": null,
+            "grid_auto_rows": null,
+            "grid_column": null,
+            "grid_gap": null,
+            "grid_row": null,
+            "grid_template_areas": null,
+            "grid_template_columns": null,
+            "grid_template_rows": null,
+            "height": null,
+            "justify_content": null,
+            "justify_items": null,
+            "left": null,
+            "margin": null,
+            "max_height": null,
+            "max_width": null,
+            "min_height": null,
+            "min_width": null,
+            "object_fit": null,
+            "object_position": null,
+            "order": null,
+            "overflow": null,
+            "overflow_x": null,
+            "overflow_y": null,
+            "padding": null,
+            "right": null,
+            "top": null,
+            "visibility": null,
+            "width": null
+          }
+        },
+        "17cc164abd144e22a91627e3537113ff": {
+          "model_module": "@jupyter-widgets/controls",
+          "model_name": "DescriptionStyleModel",
+          "model_module_version": "1.5.0",
+          "state": {
+            "_model_module": "@jupyter-widgets/controls",
+            "_model_module_version": "1.5.0",
+            "_model_name": "DescriptionStyleModel",
+            "_view_count": null,
+            "_view_module": "@jupyter-widgets/base",
+            "_view_module_version": "1.2.0",
+            "_view_name": "StyleView",
+            "description_width": ""
+          }
+        }
+      }
+    }
+  },
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "view-in-github",
+        "colab_type": "text"
+      },
+      "source": [
+        "<a href=\"https://colab.research.google.com/github/Wojz12/RAG_LLM_project/blob/new_cursor_local/NOWY_MVP\" target=\"_parent\"><img src=\"https://colab.research.google.com/assets/colab-badge.svg\" alt=\"Open In Colab\"/></a>"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": 1,
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "4zvLS8buN2Yc",
+        "outputId": "10dc346d-8f70-4663-f34a-520fb07560ba"
+      },
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "/content/RAG_LLM_project\n",
+            "Already up to date.\n",
+            "✅ Ready!\n"
+          ]
+        }
+      ],
+      "source": [
+        "# Cell 1: Setup\n",
+        "!pip install -q torch transformers datasets accelerate rank_bm25 sentence-transformers tqdm\n",
+        "\n",
+        "%cd /content/RAG_LLM_project\n",
+        "\n",
+        "# Pull latest changes\n",
+        "!git checkout -- .\n",
+        "!git pull\n",
+        "\n",
+        "import sys\n",
+        "sys.path.insert(0, '.')\n",
+        "\n",
+        "print(\"✅ Ready!\")"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# Cell 2: Load Data (per project requirements)\n",
+        "from src.data_loader import load_trivia_qa\n",
+        "\n",
+        "print(\"Loading TriviaQA...\")\n",
+        "data = load_trivia_qa()\n",
+        "\n",
+        "# Per project spec:\n",
+        "# - Validation: first 7900 from train\n",
+        "# - Train: rest of train (after 7900)\n",
+        "# - Test: original validation set\n",
+        "\n",
+        "VALIDATION_SIZE = 7900\n",
+        "full_train = data[\"train\"]\n",
+        "\n",
+        "val_data = full_train.select(range(VALIDATION_SIZE))\n",
+        "train_data = full_train.select(range(VALIDATION_SIZE, len(full_train)))\n",
+        "test_data = data[\"validation\"]\n",
+        "\n",
+        "print(f\"Validation: {len(val_data)}\")\n",
+        "print(f\"Train: {len(train_data)}\")\n",
+        "print(f\"Test: {len(test_data)}\")"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 243,
+          "referenced_widgets": [
+            "ea582f612221490b898276776c06c990",
+            "0b8837d9df1e41b0a8031e093155d0d8",
+            "6c9f300102d24e0fa163262f018df0b1",
+            "c71800ccc878477f8c65a1324256549d",
+            "d2e7c09538024bc9bd6c9c4456ea9758",
+            "757855566d4f4b6abfcc4295910c3ff5",
+            "8d3f5a6f91c64e3d96ca13ac6b18c8ee",
+            "e15e5d12ccd644a489a4914b55722615",
+            "f550492bdd934774ad044013d1b252d7",
+            "a625b0d871e146a08eb0690919b5e9ee",
+            "17cc164abd144e22a91627e3537113ff"
+          ]
+        },
+        "id": "LltHJFWKOaGV",
+        "outputId": "0cecf281-e4f7-420a-c1d7-6fca42b1e42f"
+      },
+      "execution_count": 2,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Loading TriviaQA...\n"
+          ]
+        },
+        {
+          "output_type": "stream",
+          "name": "stderr",
+          "text": [
+            "/usr/local/lib/python3.12/dist-packages/huggingface_hub/utils/_auth.py:94: UserWarning: \n",
+            "The secret `HF_TOKEN` does not exist in your Colab secrets.\n",
+            "To authenticate with the Hugging Face Hub, create a token in your settings tab (https://huggingface.co/settings/tokens), set it as secret in your Google Colab and restart your session.\n",
+            "You will be able to reuse this secret in all of your notebooks.\n",
+            "Please note that authentication is recommended but still optional to access public models or datasets.\n",
+            "  warnings.warn(\n"
+          ]
+        },
+        {
+          "output_type": "display_data",
+          "data": {
+            "text/plain": [
+              "Resolving data files:   0%|          | 0/26 [00:00<?, ?it/s]"
+            ],
+            "application/vnd.jupyter.widget-view+json": {
+              "version_major": 2,
+              "version_minor": 0,
+              "model_id": "ea582f612221490b898276776c06c990"
+            }
+          },
+          "metadata": {}
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Validation: 7900\n",
+            "Train: 46088\n",
+            "Test: 7900\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# Cell 3: Build BM25 Index (use 10k samples for speed)\n",
+        "from src.retriever import SparseRetriever\n",
+        "from src.utils import prepare_corpus\n",
+        "\n",
+        "SAMPLE_SIZE = 10000  # Increase for better results\n",
+        "\n",
+        "train_sample = train_data.select(range(min(SAMPLE_SIZE, len(train_data))))\n",
+        "print(f\"Building index on {len(train_sample)} samples...\")\n",
+        "\n",
+        "corpus = prepare_corpus(train_sample)\n",
+        "print(f\"Corpus: {len(corpus)} chunks\")\n",
+        "\n",
+        "sparse = SparseRetriever()\n",
+        "sparse.build_index(corpus)\n",
+        "print(\"BM25 Ready!\")"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "FmPUgkviO5ga",
+        "outputId": "9041ce01-78a9-4fdf-9052-6d2a15fc3ee0"
+      },
+      "execution_count": 3,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Building index on 10000 samples...\n"
+          ]
+        },
+        {
+          "output_type": "stream",
+          "name": "stderr",
+          "text": [
+            "Chunking documents: 100%|██████████| 10000/10000 [00:15<00:00, 627.70it/s]\n"
+          ]
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Corpus: 441751 chunks\n"
+          ]
+        },
+        {
+          "output_type": "stream",
+          "name": "stderr",
+          "text": [
+            "Tokenizing corpus: 100%|██████████| 441751/441751 [00:37<00:00, 11880.11it/s]\n"
+          ]
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "BM25 Ready!\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# Cell 4: Load Reranker & Generator\n",
+        "from src.re_ranker import Reranker\n",
+        "from src.generator import RAGGenerator\n",
+        "\n",
+        "print(\"Loading Reranker...\")\n",
+        "reranker = Reranker()\n",
+        "\n",
+        "print(\"Loading Generator...\")\n",
+        "generator = RAGGenerator()\n",
+        "\n",
+        "print(\"All models ready!\")"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "8RdbT2tPO8ya",
+        "outputId": "f119e0b0-66ef-4408-c80a-e2fb34328073"
+      },
+      "execution_count": 4,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Loading Reranker...\n",
+            "Loading Generator...\n"
+          ]
+        },
+        {
+          "output_type": "stream",
+          "name": "stderr",
+          "text": [
+            "`torch_dtype` is deprecated! Use `dtype` instead!\n"
+          ]
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "All models ready!\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# Cell 5: Evaluate on TEST set (50 samples for speed)\n",
+        "from src.evaluation import evaluate_predictions\n",
+        "from tqdm import tqdm\n",
+        "\n",
+        "EVAL_SIZE = 50\n",
+        "eval_data = test_data.select(range(EVAL_SIZE))\n",
+        "\n",
+        "predictions = {}\n",
+        "references = {}\n",
+        "\n",
+        "for example in tqdm(eval_data, desc=\"Evaluating\"):\n",
+        "    q = example[\"question\"]\n",
+        "    q_id = example[\"question_id\"]\n",
+        "\n",
+        "    # Retrieve\n",
+        "    docs = sparse.retrieve(q, top_k=10)\n",
+        "    texts = [d[\"text\"] for d in docs]\n",
+        "\n",
+        "    # Rerank\n",
+        "    contexts = reranker.rerank(q, texts, top_k=3)\n",
+        "    context_str = \"\\n\\n\".join(contexts)\n",
+        "\n",
+        "    # Generate\n",
+        "    answer = generator.generate_answer(q, context_str)\n",
+        "\n",
+        "    predictions[q_id] = answer\n",
+        "    references[q_id] = example[\"answer\"][\"aliases\"]\n",
+        "\n",
+        "# Evaluate\n",
+        "metrics = evaluate_predictions(predictions, references)\n",
+        "\n",
+        "print(\"\\n\" + \"=\"*50)\n",
+        "print(\"RESULTS\")\n",
+        "print(\"=\"*50)\n",
+        "print(f\"Exact Match: {metrics['exact_match']:.2f}%\")\n",
+        "print(f\"F1 Score: {metrics['f1']:.2f}%\")\n",
+        "print(f\"Samples: {len(predictions)}\")\n",
+        "print(\"=\"*50)"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "JcMXrZ0mPxwP",
+        "outputId": "1e4e71ef-085a-4e67-d631-f15439d7c37b"
+      },
+      "execution_count": 5,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stderr",
+          "text": [
+            "Evaluating: 100%|██████████| 50/50 [02:39<00:00,  3.18s/it]"
+          ]
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "\n",
+            "==================================================\n",
+            "RESULTS\n",
+            "==================================================\n",
+            "Exact Match: 24.00%\n",
+            "F1 Score: 34.00%\n",
+            "Samples: 50\n",
+            "==================================================\n"
+          ]
+        },
+        {
+          "output_type": "stream",
+          "name": "stderr",
+          "text": [
+            "\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# Cell 6: Sample predictions\n",
+        "import random\n",
+        "sample_ids = random.sample(list(predictions.keys()), 5)\n",
+        "\n",
+        "for q_id in sample_ids:\n",
+        "    for ex in eval_data:\n",
+        "        if ex[\"question_id\"] == q_id:\n",
+        "            print(f\"\\nQ: {ex['question']}\")\n",
+        "            break\n",
+        "    print(f\"Pred: '{predictions[q_id]}'\")\n",
+        "    print(f\"Expected: {references[q_id][:3]}\")\n",
+        "    print(\"-\"*40)"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "k_MuCvFRU2nr",
+        "outputId": "798f52ab-1d56-42ba-86f0-4d5ca7889317"
+      },
+      "execution_count": 6,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "\n",
+            "Q: In the 90s how many points have been awarded for finishing second in a Grand Prix?\n",
+            "Pred: '10 points'\n",
+            "Expected: ['six', '6']\n",
+            "----------------------------------------\n",
+            "\n",
+            "Q: Which William wrote the novel Lord Of The Flies?\n",
+            "Pred: 'William Golding'\n",
+            "Expected: ['Golding', 'Golding (surname)', 'Golding (disambiguation)']\n",
+            "----------------------------------------\n",
+            "\n",
+            "Q: Which musical featured the song Thank Heaven for Little Girls?\n",
+            "Pred: 'Sound of Music'\n",
+            "Expected: ['Gigi', 'GiGi']\n",
+            "----------------------------------------\n",
+            "\n",
+            "Q: Who directed 2001: A Space Odyssey?\n",
+            "Pred: 'Stanley Kubrick'\n",
+            "Expected: ['Stanley Q-Brick', 'Stanley kubrick', 'Stan Kubrick']\n",
+            "----------------------------------------\n",
+            "\n",
+            "Q: Which prince is Queen Elizabeth II's youngest son?\n",
+            "Pred: 'Prince Edward'\n",
+            "Expected: ['Eadweard', 'Edward']\n",
+            "----------------------------------------\n"
+          ]
+        }
+      ]
+    }
+  ]
+}
