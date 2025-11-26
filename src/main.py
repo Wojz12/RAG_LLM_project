@@ -1,9 +1,13 @@
+"""Main entry point for building RAG indices and running single-query tests."""
+
 import argparse
+import json
 import logging
 import os
-import json
-from tqdm import tqdm
+from typing import Optional
+
 import torch
+from tqdm import tqdm
 
 # Ensure clean imports to avoid TF conflicts
 os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
@@ -16,7 +20,11 @@ from src.generator import RAGGenerator
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-def main():
+# Path for saving processed chunks (used by build_bm25_index.py)
+PROCESSED_CHUNKS_PATH = "processed_chunks.json"
+
+def main() -> None:
+    """Main entry point for building indices and running queries."""
     parser = argparse.ArgumentParser(description="RAG Pipeline (Dense/Sparse) for TriviaQA")
     
     # Arguments
@@ -72,10 +80,10 @@ def main():
             
         corpus = prepare_corpus(train_data)
         
-        # Save chunks for BM25
-        import json
-        with open("processed_chunks.json", "w") as f:
+        # Save chunks for BM25 (used by build_bm25_index.py)
+        with open(PROCESSED_CHUNKS_PATH, "w", encoding="utf-8") as f:
             json.dump(corpus, f)
+        logger.info(f"Saved {len(corpus)} chunks to {PROCESSED_CHUNKS_PATH}")
         
         retriever.build_index(corpus)
         retriever.save_index(args.index_path)
