@@ -1,10 +1,14 @@
+"""Hybrid RAG Pipeline: Dense + BM25 + Reranking + LLM Generation."""
+
 import argparse
 import logging
 import os
 import json
+from typing import List, Dict, Any, Optional
 from tqdm import tqdm
+
 from src.data_loader import load_trivia_qa
-from src.retriever import SparseRetriever
+from src.retriever import SparseRetriever, DenseRetriever
 from src.utils import prepare_corpus
 from src.re_ranker import Reranker
 from src.bm25_retriever import BM25Retriever
@@ -12,37 +16,51 @@ from src.bm25_retriever import BM25Retriever
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-def main():
-    parser = argparse.ArgumentParser(description="RAG Pipeline for TriviaQA")
-    parser.add_argument("--mode", type=str, choices=["sparse", "generate"], default="sparse", help="Mode of operation")
+# Constants for grounding prompt
+GROUNDING_FALLBACK = "I don't know from the given documents."
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Hybrid RAG Pipeline for TriviaQA")
+    parser.add_argument("--mode", type=str, choices=["sparse", "generate"], default="sparse", 
+                        help="Mode: 'sparse' for BM25-only, 'generate' for full Hybrid RAG")
     parser.add_argument("--query", type=str, help="Single query to test")
-    parser.add_argument("--index_path", type=str, default="bm25_index.pkl", help="Path to save/load BM25 index")
-    parser.add_argument("--force_rebuild", action="store_true", help="Force rebuilding the index even if it exists")
+    parser.add_argument("--sparse_index_path", type=str, default="bm25_index.pkl", 
+                        help="Path to rank_bm25 sparse index (.pkl)")
+    parser.add_argument("--dense_index_path", type=str, default="rag_index", 
+                        help="Path prefix for FAISS dense index (.faiss/.meta.pkl)")
+    parser.add_argument("--bm25_lucene_path", type=str, default="bm25_index", 
+                        help="Path to Pyserini/Lucene BM25 index directory")
+    parser.add_argument("--force_rebuild", action="store_true", help="Force rebuilding the index")
     parser.add_argument("--output_dir", type=str, default="output", help="Directory to save predictions")
-    parser.add_argument("--sample_size", type=int, help="Number of examples to use for testing (debugging)")
-    parser.add_argument("--predict_split", type=str, choices=["train", "validation", "test"], help="Run predictions on a specific split")
-    parser.add_argument("--model_name", type=str, default="TinyLlama/TinyLlama-1.1B-Chat-v1.0", help="HuggingFace model name for generation")
+    parser.add_argument("--sample_size", type=int, help="Number of examples for debugging")
+    parser.add_argument("--predict_split", type=str, choices=["train", "validation", "test"], 
+                        help="Run predictions on a specific split")
+    parser.add_argument("--model_name", type=str, default="TinyLlama/TinyLlama-1.1B-Chat-v1.0", 
+                        help="HuggingFace model name for generation")
     
     args = parser.parse_args()
     
     # Create output directory
     os.makedirs(args.output_dir, exist_ok=True)
     
-    # Initialize Retriever (Common to both modes)
-    retriever = SparseRetriever()
+    # Initialize Sparse Retriever (rank_bm25 - for sparse mode)
+    sparse_retriever = SparseRetriever()
     reranker = Reranker()
-    bm25 = BM25Retriever("bm25_index")
     
-    # Logic for Loading/Building Index
-    if os.path.exists(args.index_path) and not args.force_rebuild:
+    # Dense retriever and Pyserini BM25 are initialized lazily for generate mode
+    dense_retriever: Optional[DenseRetriever] = None
+    bm25_retriever: Optional[BM25Retriever] = None
+    
+    # Logic for Loading/Building Sparse Index (rank_bm25)
+    if os.path.exists(args.sparse_index_path) and not args.force_rebuild:
         try:
-            retriever.load_index(args.index_path)
+            sparse_retriever.load_index(args.sparse_index_path)
         except Exception as e:
-            logger.error(f"Failed to load index: {e}. Rebuilding...")
+            logger.error(f"Failed to load sparse index: {e}. Rebuilding...")
             args.force_rebuild = True
             
-    if args.force_rebuild or not os.path.exists(args.index_path):
-        logger.info("Index not found or rebuild forced. Loading dataset...")
+    if args.force_rebuild or not os.path.exists(args.sparse_index_path):
+        logger.info("Sparse index not found or rebuild forced. Loading dataset...")
         data = load_trivia_qa()
         train_data = data["train"]
         if args.sample_size:
@@ -50,16 +68,16 @@ def main():
             train_data = train_data.select(range(args.sample_size))
         
         corpus = prepare_corpus(train_data)
-        retriever.build_index(corpus)
-        retriever.save_index(args.index_path)
+        sparse_retriever.build_index(corpus)
+        sparse_retriever.save_index(args.sparse_index_path)
 
     if args.mode == "sparse":
-        logger.info("Running Sparse Retrieval Baseline...")
+        logger.info("Running Sparse Retrieval Baseline (rank_bm25)...")
         
         # 1. Single Query Mode
         if args.query:
             logger.info(f"Query: {args.query}")
-            results = retriever.retrieve(args.query, top_k=5)
+            results = sparse_retriever.retrieve(args.query, top_k=5)
             for i, res in enumerate(results):
                 print(f"\nRank {i+1} (Score: {res['score']:.4f}):")
                 print(f"Title: {res['title']}")
@@ -72,17 +90,17 @@ def main():
             dataset = data[args.predict_split]
             
             if args.sample_size:
-                 logger.warning(f"Predicting on a sample of {args.sample_size} examples.")
-                 dataset = dataset.select(range(args.sample_size))
+                logger.warning(f"Predicting on a sample of {args.sample_size} examples.")
+                dataset = dataset.select(range(args.sample_size))
             
-            predictions = []
+            predictions: List[Dict[str, Any]] = []
             
             for example in tqdm(dataset, desc="Predicting"):
                 question = example["question"]
                 q_id = example["question_id"]
                 
                 # Retrieve top document
-                results = retriever.retrieve(question, top_k=1)
+                results = sparse_retriever.retrieve(question, top_k=1)
                 
                 if results:
                     # In Phase 1 (Sparse Only), prediction is the retrieved text
@@ -97,14 +115,32 @@ def main():
                 })
             
             output_file = os.path.join(args.output_dir, "preds_sparse.json")
-            with open(output_file, "w") as f:
+            with open(output_file, "w", encoding="utf-8") as f:
                 json.dump(predictions, f, indent=4)
             
             logger.info(f"Predictions saved to {output_file}")
 
     elif args.mode == "generate":
-        logger.info("Running RAG Generation Mode...")
+        logger.info("Running Hybrid RAG Generation Mode (Dense + BM25 + Reranking)...")
         from src.generator import RAGGenerator
+        
+        # Initialize Dense Retriever
+        dense_retriever = DenseRetriever()
+        dense_index_file = args.dense_index_path + ".faiss"
+        if os.path.exists(dense_index_file):
+            dense_retriever.load_index(args.dense_index_path)
+        else:
+            logger.error(f"Dense index not found: {dense_index_file}")
+            logger.info("Run 'python src/main.py --force_rebuild' first to build the FAISS index.")
+            return
+        
+        # Initialize BM25 Retriever (Pyserini)
+        if os.path.exists(args.bm25_lucene_path):
+            bm25_retriever = BM25Retriever(args.bm25_lucene_path)
+        else:
+            logger.warning(f"Pyserini BM25 index not found: {args.bm25_lucene_path}")
+            logger.warning("Hybrid retrieval will use only Dense retriever. Run build_bm25_index.py to enable BM25.")
+            bm25_retriever = None
         
         # Initialize Generator
         generator = RAGGenerator(model_name=args.model_name)
@@ -113,36 +149,25 @@ def main():
         if args.query:
             logger.info(f"Query: {args.query}")
             # Hybrid Retrieval: Dense + BM25 + Reranking
-            dense_docs = retriever.retrieve(args.query, top_k=20)
-            bm25_docs = bm25.search(args.query, k=20)
+            dense_docs = dense_retriever.retrieve(args.query, top_k=20)
+            dense_texts = [doc['text'] for doc in dense_docs]
+            
+            bm25_texts: List[str] = []
+            if bm25_retriever:
+                bm25_docs = bm25_retriever.search(args.query, k=20)
+                bm25_texts = [doc['text'] if isinstance(doc, dict) else doc for doc in bm25_docs]
             
             # Combine and deduplicate
-            dense_texts = [doc['text'] for doc in dense_docs]
-            bm25_texts = [doc['text'] if isinstance(doc, dict) else doc for doc in bm25_docs]
             combined = list(set(dense_texts + bm25_texts))
             
             # Rerank
             contexts = reranker.rerank(args.query, combined, top_k=5)
+            context_str = "\n\n".join(contexts)
             
-            print(f"\nContext (Top-5):\n{str(contexts)[:500]}...\n")
+            print(f"\nContext (Top-5 reranked):\n{context_str[:500]}...\n")
             
-            # Hard-grounded prompt
-            prompt = f"""
-You must answer ONLY using the provided context below.
-If the answer is not in the context, respond exactly with:
-"I don't know from the given documents."
-
-Context:
-{contexts}
-
-Question:
-{args.query}
-
-Answer:
-"""
-            
-            # Generate
-            answer = generator.generate_answer(args.query, prompt)
+            # Generate with hard-grounding
+            answer = generator.generate_answer(args.query, context_str)
             print(f"\nGenerated Answer: {answer}")
             
         # 2. Batch Prediction Mode
@@ -152,44 +177,33 @@ Answer:
             dataset = data[args.predict_split]
             
             if args.sample_size:
-                 logger.warning(f"Predicting on a sample of {args.sample_size} examples.")
-                 dataset = dataset.select(range(args.sample_size))
+                logger.warning(f"Predicting on a sample of {args.sample_size} examples.")
+                dataset = dataset.select(range(args.sample_size))
             
-            predictions = []
+            predictions: List[Dict[str, Any]] = []
             
             for example in tqdm(dataset, desc="Generating"):
                 question = example["question"]
                 q_id = example["question_id"]
                 
                 # Hybrid Retrieval: Dense + BM25 + Reranking
-                dense_docs = retriever.retrieve(question, top_k=20)
-                bm25_docs = bm25.search(question, k=20)
+                dense_docs = dense_retriever.retrieve(question, top_k=20)
+                dense_texts = [doc['text'] for doc in dense_docs]
+                
+                bm25_texts_batch: List[str] = []
+                if bm25_retriever:
+                    bm25_docs = bm25_retriever.search(question, k=20)
+                    bm25_texts_batch = [doc['text'] if isinstance(doc, dict) else doc for doc in bm25_docs]
                 
                 # Combine and deduplicate
-                dense_texts = [doc['text'] for doc in dense_docs]
-                bm25_texts = [doc['text'] if isinstance(doc, dict) else doc for doc in bm25_docs]
-                combined = list(set(dense_texts + bm25_texts))
+                combined = list(set(dense_texts + bm25_texts_batch))
                 
                 # Rerank
                 contexts = reranker.rerank(question, combined, top_k=5)
+                context_str = "\n\n".join(contexts)
                 
-                # Hard-grounded prompt
-                prompt = f"""
-You must answer ONLY using the provided context below.
-If the answer is not in the context, respond exactly with:
-"I don't know from the given documents."
-
-Context:
-{contexts}
-
-Question:
-{question}
-
-Answer:
-"""
-                
-                # Generate
-                predicted_answer = generator.generate_answer(question, prompt)
+                # Generate with hard-grounding
+                predicted_answer = generator.generate_answer(question, context_str)
                 
                 predictions.append({
                     "id": q_id,
@@ -198,7 +212,7 @@ Answer:
                 })
             
             output_file = os.path.join(args.output_dir, "preds_rag.json")
-            with open(output_file, "w") as f:
+            with open(output_file, "w", encoding="utf-8") as f:
                 json.dump(predictions, f, indent=4)
             
             logger.info(f"Predictions saved to {output_file}")
