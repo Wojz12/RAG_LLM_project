@@ -74,6 +74,33 @@ Evaluates using Exact Match (EM) and F1 scores using the official TriviaQA metri
 Bash
 
 python src/evaluation.py --predictions output/preds.json
+
+## Running in Google Colab (Hybrid RAG)
+
+To run the full Hybrid RAG pipeline (BM25 + Dense Retrieval + LLM Generation) on Google Colab with GPU acceleration:
+
+1. **Open the Colab Notebook:**
+   - Upload `colab_hybrid_rag.ipynb` to Google Colab or use the direct link.
+
+2. **Enable GPU Runtime:**
+   - Go to `Runtime` → `Change runtime type` → Select `T4 GPU` (or higher).
+
+3. **Install Dependencies:**
+   ```python
+   !pip install -q datasets rank_bm25 transformers accelerate bitsandbytes faiss-gpu
+   ```
+
+4. **Run the Pipeline:**
+   ```python
+   from src.pipeline import run_hybrid_pipeline
+   results = run_hybrid_pipeline(questions, top_k=5)
+   ```
+
+5. **Memory Tips for Colab Free Tier:**
+   - Use `load_in_4bit=True` for quantized LLM inference.
+   - Process questions in batches to avoid OOM errors.
+   - Clear GPU cache between runs: `torch.cuda.empty_cache()`.
+
 📈 Git Hygiene (Grading Requirement)
 Commit often: Do not squash changes.
 
