@@ -1,8 +1,15 @@
+"""RAG Generator module with hard-grounded LLM generation."""
+
 import torch
+from typing import Optional
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import logging
 
 logger = logging.getLogger(__name__)
+
+# Unified grounding constant - use this exact phrase for "I don't know" responses
+GROUNDING_FALLBACK = "I don't know from the given documents."
+
 
 class RAGGenerator:
     """
@@ -11,16 +18,13 @@ class RAGGenerator:
     """
     def __init__(self, model_name: str = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"):
         self.model_name = model_name
-        self.tokenizer = None
-        self.model = None
+        self.tokenizer: Optional[AutoTokenizer] = None
+        self.model: Optional[AutoModelForCausalLM] = None
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self._load_model()
 
-    def _load_model(self):
-        """
-        Loads the model. Tries to use GPU with float16 if available, otherwise float32 on CPU.
-        Avoids bitsandbytes 4-bit quantization to ensure stability on Python 3.14+.
-        """
+    def _load_model(self) -> None:
+        """Load the model with GPU float16 if available, otherwise CPU float32."""
         logger.info(f"Loading LLM: {self.model_name} on {self.device}...")
         
         try:
@@ -47,12 +51,24 @@ class RAGGenerator:
             raise e
 
     def generate_answer(self, query: str, context: str, max_new_tokens: int = 150) -> str:
+        """Generate an answer given the query and retrieved context.
+        
+        Args:
+            query: The user's question.
+            context: Retrieved and reranked context passages.
+            max_new_tokens: Maximum tokens to generate.
+            
+        Returns:
+            Generated answer string.
         """
-        Generates an answer given the query and retrieved context.
-        """
-        # Create prompt using the model's chat template
+        # Hard-grounding system prompt with explicit fallback phrase
+        system_prompt = (
+            f"You are a helpful assistant. Answer the question using ONLY the provided context. "
+            f"If the answer is not found in the context, respond exactly with: \"{GROUNDING_FALLBACK}\""
+        )
+        
         messages = [
-            {"role": "system", "content": "You are a helpful assistant. Answer the question using only the provided context. If the answer is not in the context, say 'I don't know'."},
+            {"role": "system", "content": system_prompt},
             {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {query}"}
         ]
         
