@@ -71,6 +71,12 @@ def main():
             train_data = train_data.select(range(args.sample_size))
             
         corpus = prepare_corpus(train_data)
+        
+        # Save chunks for BM25
+        import json
+        with open("processed_chunks.json", "w") as f:
+            json.dump(corpus, f)
+        
         retriever.build_index(corpus)
         retriever.save_index(args.index_path)
 
