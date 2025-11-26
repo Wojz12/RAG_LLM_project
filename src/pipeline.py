@@ -4,14 +4,16 @@ import argparse
 import logging
 import os
 import json
+import pickle
 from typing import List, Dict, Any, Optional
 from tqdm import tqdm
+
+from rank_bm25 import BM25Okapi
 
 from src.data_loader import load_trivia_qa
 from src.retriever import SparseRetriever, DenseRetriever
 from src.utils import prepare_corpus
 from src.re_ranker import Reranker
-from src.bm25_retriever import BM25Retriever
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -28,8 +30,6 @@ def main() -> None:
                         help="Path to rank_bm25 sparse index (.pkl)")
     parser.add_argument("--dense_index_path", type=str, default="rag_index", 
                         help="Path prefix for FAISS dense index (.faiss/.meta.pkl)")
-    parser.add_argument("--bm25_lucene_path", type=str, default="bm25_index", 
-                        help="Path to Pyserini/Lucene BM25 index directory")
     parser.add_argument("--force_rebuild", action="store_true", help="Force rebuilding the index")
     parser.add_argument("--output_dir", type=str, default="output", help="Directory to save predictions")
     parser.add_argument("--sample_size", type=int, help="Number of examples for debugging")
@@ -47,9 +47,10 @@ def main() -> None:
     sparse_retriever = SparseRetriever()
     reranker = Reranker()
     
-    # Dense retriever and Pyserini BM25 are initialized lazily for generate mode
+    # Dense retriever and BM25 are initialized lazily for generate mode
     dense_retriever: Optional[DenseRetriever] = None
-    bm25_retriever: Optional[BM25Retriever] = None
+    bm25: Optional[BM25Okapi] = None
+    bm25_corpus: List[Dict[str, Any]] = []
     
     # Logic for Loading/Building Sparse Index (rank_bm25)
     if os.path.exists(args.sparse_index_path) and not args.force_rebuild:
@@ -134,13 +135,21 @@ def main() -> None:
             logger.info("Run 'python src/main.py --force_rebuild' first to build the FAISS index.")
             return
         
-        # Initialize BM25 Retriever (Pyserini)
-        if os.path.exists(args.bm25_lucene_path):
-            bm25_retriever = BM25Retriever(args.bm25_lucene_path)
-        else:
-            logger.warning(f"Pyserini BM25 index not found: {args.bm25_lucene_path}")
-            logger.warning("Hybrid retrieval will use only Dense retriever. Run build_bm25_index.py to enable BM25.")
-            bm25_retriever = None
+        # Load BM25 index (rank_bm25)
+        print("Loading BM25 index...")
+        try:
+            with open(args.sparse_index_path, "rb") as f:
+                bm25_data = pickle.load(f)
+            
+            bm25 = bm25_data["bm25"]
+            bm25_corpus = bm25_data["corpus"]
+            
+            print(f"BM25 index loaded with {len(bm25_corpus)} documents.")
+        except FileNotFoundError:
+            logger.warning(f"BM25 index not found: {args.sparse_index_path}")
+            logger.warning("Hybrid retrieval will use only Dense retriever.")
+            bm25 = None
+            bm25_corpus = []
         
         # Initialize Generator
         generator = RAGGenerator(model_name=args.model_name)
@@ -152,13 +161,16 @@ def main() -> None:
             dense_docs = dense_retriever.retrieve(args.query, top_k=20)
             dense_texts = [doc['text'] for doc in dense_docs]
             
-            bm25_texts: List[str] = []
-            if bm25_retriever:
-                bm25_docs = bm25_retriever.search(args.query, k=20)
-                bm25_texts = [doc['text'] if isinstance(doc, dict) else doc for doc in bm25_docs]
+            # BM25 retrieval (rank_bm25)
+            bm25_top_texts: List[str] = []
+            if bm25 is not None:
+                tokenized_query = args.query.lower().split()
+                bm25_scores = bm25.get_scores(tokenized_query)
+                top_bm25_ids = bm25_scores.argsort()[-20:][::-1]
+                bm25_top_texts = [bm25_corpus[i]["text"] for i in top_bm25_ids if i < len(bm25_corpus)]
             
             # Combine and deduplicate
-            combined = list(set(dense_texts + bm25_texts))
+            combined = list(set(dense_texts + bm25_top_texts))
             
             # Rerank
             contexts = reranker.rerank(args.query, combined, top_k=5)
@@ -190,13 +202,16 @@ def main() -> None:
                 dense_docs = dense_retriever.retrieve(question, top_k=20)
                 dense_texts = [doc['text'] for doc in dense_docs]
                 
-                bm25_texts_batch: List[str] = []
-                if bm25_retriever:
-                    bm25_docs = bm25_retriever.search(question, k=20)
-                    bm25_texts_batch = [doc['text'] if isinstance(doc, dict) else doc for doc in bm25_docs]
+                # BM25 retrieval (rank_bm25)
+                bm25_top_texts_batch: List[str] = []
+                if bm25 is not None:
+                    tokenized_query = question.lower().split()
+                    bm25_scores = bm25.get_scores(tokenized_query)
+                    top_bm25_ids = bm25_scores.argsort()[-20:][::-1]
+                    bm25_top_texts_batch = [bm25_corpus[i]["text"] for i in top_bm25_ids if i < len(bm25_corpus)]
                 
                 # Combine and deduplicate
-                combined = list(set(dense_texts + bm25_texts_batch))
+                combined = list(set(dense_texts + bm25_top_texts_batch))
                 
                 # Rerank
                 contexts = reranker.rerank(question, combined, top_k=5)
