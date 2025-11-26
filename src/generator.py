@@ -50,26 +50,39 @@ class RAGGenerator:
             logger.error(f"Failed to load LLM: {e}")
             raise e
 
-    def generate_answer(self, query: str, context: str, max_new_tokens: int = 150) -> str:
+    def generate_answer(self, query: str, context: str, max_new_tokens: int = 30) -> str:
         """Generate an answer given the query and retrieved context.
         
         Args:
             query: The user's question.
             context: Retrieved and reranked context passages.
-            max_new_tokens: Maximum tokens to generate.
+            max_new_tokens: Maximum tokens to generate (default 30 for concise answers).
             
         Returns:
             Generated answer string.
         """
-        # Hard-grounding system prompt with explicit fallback phrase
+        # Hard-grounding system prompt optimized for SHORT, DIRECT answers
         system_prompt = (
-            f"You are a helpful assistant. Answer the question using ONLY the provided context. "
-            f"If the answer is not found in the context, respond exactly with: \"{GROUNDING_FALLBACK}\""
+            "You are a trivia answer bot. Answer questions in 1-5 words ONLY. "
+            "Use ONLY the provided context. No explanations, no full sentences. "
+            f"If unknown, say: \"{GROUNDING_FALLBACK}\""
         )
+        
+        # User prompt with examples for few-shot learning
+        user_content = f"""Context:
+{context}
+
+Examples:
+Q: Who wrote Hamlet? A: William Shakespeare
+Q: What is the capital of France? A: Paris
+Q: When did WW2 end? A: 1945
+
+Question: {query}
+A:"""
         
         messages = [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {query}"}
+            {"role": "user", "content": user_content}
         ]
         
         # Apply chat template (handles special tokens for TinyLlama/Zephyr/etc.)
@@ -129,4 +142,20 @@ class RAGGenerator:
         response_tokens = outputs[0][inputs["input_ids"].shape[1]:]
         answer = self.tokenizer.decode(response_tokens, skip_special_tokens=True)
         
-        return answer.strip()
+        # Clean up the answer
+        answer = answer.strip()
+        
+        # Remove common prefixes the model might add
+        prefixes_to_remove = ["A:", "Answer:", "The answer is", "The answer is:"]
+        for prefix in prefixes_to_remove:
+            if answer.lower().startswith(prefix.lower()):
+                answer = answer[len(prefix):].strip()
+        
+        # Take only first line/sentence for conciseness
+        answer = answer.split('\n')[0].strip()
+        
+        # Remove trailing punctuation for cleaner matching
+        if answer.endswith('.'):
+            answer = answer[:-1].strip()
+        
+        return answer
