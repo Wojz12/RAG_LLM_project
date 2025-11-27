@@ -1,126 +1,131 @@
 # Open-Domain QA with RAG (TriviaQA)
 
 ## 📌 Project Overview
-This project implements a **Retrieval-Augmented Generation (RAG)** system for Open-Domain Question Answering. It is designed to answer factoid questions using the **TriviaQA** dataset by retrieving evidence from Wikipedia and generating answers using a Large Language Model (LLM).
+This project implements a **Retrieval-Augmented Generation (RAG)** system for Open-Domain Question Answering using the **TriviaQA** dataset.
 
-**Current Phase:** Phase 1 (Sparse Retrieval Baseline)
+**Architecture:** BM25 Retrieval → CrossEncoder Reranking → TinyLlama Generation
 
-## 📂 Dataset & Constraints
-We use the **TriviaQA** dataset (RC configuration).
-* **Source:** [HuggingFace Viewer](https://huggingface.co/datasets/mandarjoshi/trivia_qa/viewer/rc/train)
-* **Configuration:** `rc.wikipedia` (Focusing on Wikipedia evidence first as recommended).
+## 🏆 Results
 
-### 🚨 Critical Data Split
-[cite_start]Per assignment requirements[cite: 72, 73], we do **not** use the default validation set for validation.
-1.  **Training Set:** `train` split (indices 7,900 to end).
-2.  **Validation Set:** The **first 7,900 examples** of the `train` split.
-3.  **Test Set:** The original `validation` split.
+| Model | Index Size | Eval Samples | Exact Match | F1 Score |
+|-------|------------|--------------|-------------|----------|
+| BM25 + Reranker + TinyLlama | 10,000 | 500 | **39.80%** | **44.36%** |
+
+*Evaluated on TriviaQA validation set (rc.wikipedia configuration)*
 
 ## 🛠️ Architecture
 
-### 1. Retrieval (Sparse First)
-* **Method:** BM25 (Best Matching 25).
-* **Library:** `rank_bm25`.
-* **Logic:**
-    * Extracts `EntityPages` (Wikipedia) from the dataset.
-    * Chunks long documents into smaller passages (e.g., 256 tokens).
-    * Indexes passages for keyword-based retrieval.
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│   Query     │ ──► │  BM25       │ ──► │  Reranker   │ ──► │  TinyLlama  │
+│             │     │  Retriever  │     │ CrossEncoder│     │  Generator  │
+└─────────────┘     └─────────────┘     └─────────────┘     └─────────────┘
+                         │                    │                    │
+                    Top-10 docs          Top-3 docs            Answer
+```
 
-### 2. Generation (To Be Implemented)
-* **Model:** Quantized LLM (e.g., Qwen/Llama-3 via `bitsandbytes`).
-* **Method:** 4-bit quantization to fit consumer GPUs.
+### Components:
 
-## ⚙️ Setup
+| Component | Implementation | Description |
+|-----------|----------------|-------------|
+| **Retriever** | BM25 (rank_bm25) | Sparse keyword-based retrieval |
+| **Reranker** | CrossEncoder (ms-marco) | Semantic reranking of candidates |
+| **Generator** | TinyLlama-1.1B-Chat | Answer generation from context |
 
-1.  **Create Environment:**
-    ```bash
-    conda create -n rag-project python=3.10
-    conda activate rag-project
-    ```
+## 📂 Dataset
 
-2.  **Install Dependencies:**
-    ```bash
-    pip install -r requirements.txt
-    ```
+**Source:** [TriviaQA](https://huggingface.co/datasets/mandarjoshi/trivia_qa) (rc.wikipedia)
 
-3.  **Requirements (`requirements.txt`):**
-    ```text
-    torch
-    transformers
-    datasets
-    accelerate
-    bitsandbytes
-    rank_bm25
-    scikit-learn
-    tqdm
-    # faiss-gpu (Reserved for Phase 2: Dense Retrieval)
-    ```
+### Data Splits (per assignment requirements):
+| Split | Source | Size |
+|-------|--------|------|
+| **Validation** | First 7,900 from train | 7,900 |
+| **Train** | Rest of train (7,900+) | ~70,000 |
+| **Test** | Original validation | 7,993 |
 
-## 🚀 Usage
+## 🚀 Quick Start (Google Colab)
 
-### 1. Data Loading & Splitting
-The data loader automatically handles the 7,900-split rule:
+### 1. Setup
+```python
+!pip install -q torch transformers datasets accelerate rank_bm25 sentence-transformers tqdm
+
+!git clone -b new_cursor_local https://github.com/Wojz12/RAG_LLM_project.git
+%cd RAG_LLM_project
+```
+
+### 2. Load Data & Build Index
 ```python
 from src.data_loader import load_trivia_qa
-data = load_trivia_qa(split="rc.wikipedia")
-# Returns: {'train': ..., 'val': (first 7.9k), 'test': ...}
-2. Running the Sparse Retriever
-Bash
+from src.retriever import SparseRetriever
+from src.utils import prepare_corpus
 
-python src/pipeline.py --mode sparse --query "What film did Marie Curie inspire?"
-3. Evaluation
-Evaluates using Exact Match (EM) and F1 scores using the official TriviaQA metrics.
+data = load_trivia_qa()
+train_data = data["train"].select(range(7900, 17900))  # 10k samples
 
-Bash
+corpus = prepare_corpus(train_data)
+sparse = SparseRetriever()
+sparse.build_index(corpus)
+```
 
-python src/evaluation.py --predictions output/preds.json
+### 3. Load Models
+```python
+from src.re_ranker import Reranker
+from src.generator import RAGGenerator
 
-## Running in Google Colab (Hybrid RAG)
+reranker = Reranker()
+generator = RAGGenerator()
+```
 
-To run the full Hybrid RAG pipeline (BM25 + Dense Retrieval + LLM Generation) on Google Colab with GPU acceleration:
+### 4. Ask Questions
+```python
+query = "Who wrote Romeo and Juliet?"
 
-1. **Open the Colab Notebook:**
-   - Upload `colab_hybrid_rag.ipynb` to Google Colab or use the direct link.
+docs = sparse.retrieve(query, top_k=10)
+contexts = reranker.rerank(query, [d["text"] for d in docs], top_k=3)
+answer = generator.generate_answer(query, "\n\n".join(contexts))
 
-2. **Enable GPU Runtime:**
-   - Go to `Runtime` → `Change runtime type` → Select `T4 GPU` (or higher).
+print(f"Answer: {answer}")
+```
 
-3. **Install Dependencies:**
-   ```python
-   !pip install -q datasets rank_bm25 transformers accelerate bitsandbytes faiss-gpu
-   ```
+## 📁 Project Structure
 
-4. **Run the Pipeline:**
-   ```python
-   from src.pipeline import run_hybrid_pipeline
-   results = run_hybrid_pipeline(questions, top_k=5)
-   ```
+```
+RAG_LLM_project/
+├── src/
+│   ├── data_loader.py    # TriviaQA data loading
+│   ├── retriever.py      # BM25 & Dense retrievers
+│   ├── re_ranker.py      # CrossEncoder reranking
+│   ├── generator.py      # TinyLlama generation
+│   ├── evaluation.py     # EM & F1 metrics
+│   ├── utils.py          # Corpus preparation
+│   └── pipeline.py       # Full pipeline
+├── colab_hybrid_rag.ipynb
+├── requirements.txt
+└── README.md
+```
 
-5. **Memory Tips for Colab Free Tier:**
-   - Use `load_in_4bit=True` for quantized LLM inference.
-   - Process questions in batches to avoid OOM errors.
-   - Clear GPU cache between runs: `torch.cuda.empty_cache()`.
+## ⚙️ Local Setup
 
-📈 Git Hygiene (Grading Requirement)
-Commit often: Do not squash changes.
-
-History: Reflects incremental progress (Data Loader -> Sparse Retriever -> Generator -> Dense Retrieval).
-
-📜 References
-
-Dataset: TriviaQA: A Large Scale Distantly Supervised Challenge Dataset for Reading Comprehension (Joshi et al., 2017) 
-
-
-
-Assignment: Final Project RAG Specifications.
-
-
----
-
-### Suggested Git Commit
-Since we are establishing the project root, you should commit this now.
-
-**Command:**
 ```bash
-git add README.md
-git commit -m "Docs: Initialize project README with TriviaQA constraints and
+# Create environment
+conda create -n rag-project python=3.10
+conda activate rag-project
+
+# Install dependencies
+pip install -r requirements.txt
+```
+
+## 📊 Evaluation Metrics
+
+- **Exact Match (EM):** Percentage of predictions that exactly match ground truth
+- **F1 Score:** Token-level overlap between prediction and ground truth
+
+## 📜 References
+
+- Dataset: [TriviaQA (Joshi et al., 2017)](https://aclanthology.org/P17-1147/)
+- Reranker: [MS MARCO CrossEncoder](https://huggingface.co/cross-encoder/ms-marco-MiniLM-L-6-v2)
+- Generator: [TinyLlama-1.1B-Chat](https://huggingface.co/TinyLlama/TinyLlama-1.1B-Chat-v1.0)
+
+## 👨‍💻 Author
+
+University Final Project - Open-Domain Question Answering with RAG
