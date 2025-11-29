@@ -33,7 +33,10 @@ def main() -> None:
     parser.add_argument("--index_path", type=str, default="rag_index", help="Base path for index (will add extensions)")
     parser.add_argument("--force_rebuild", action="store_true", help="Force rebuilding the index")
     parser.add_argument("--sample_size", type=int, help="Number of examples to use for indexing")
-    parser.add_argument("--model_name", type=str, default="TinyLlama/TinyLlama-1.1B-Chat-v1.0", help="LLM model name")
+    parser.add_argument("--llm", type=str, default="tinyllama", 
+                        choices=["tinyllama", "mistral", "phi3"],
+                        help="LLM: tinyllama (baseline), mistral (7B best), phi3 (3.8B balanced)")
+    parser.add_argument("--model_name", type=str, default=None, help="Custom HuggingFace model ID (overrides --llm)")
     parser.add_argument("--embedding_model", type=str, default="all-MiniLM-L6-v2", help="Embedding model for Dense Retriever")
     
     args = parser.parse_args()
@@ -88,9 +91,10 @@ def main() -> None:
         retriever.build_index(corpus)
         retriever.save_index(args.index_path)
 
-    # 3. Initialize Generator
-    logger.info(f"Initializing Generator ({args.model_name})...")
-    generator = RAGGenerator(model_name=args.model_name)
+    # 3. Initialize Generator with selected LLM
+    model_choice = args.model_name if args.model_name else args.llm
+    logger.info(f"Initializing Generator ({model_choice})...")
+    generator = RAGGenerator(model_name=model_choice)
 
     # 4. Execute RAG (Single Query)
     if args.query:

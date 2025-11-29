@@ -35,8 +35,11 @@ def main() -> None:
     parser.add_argument("--sample_size", type=int, help="Number of examples for debugging")
     parser.add_argument("--predict_split", type=str, choices=["train", "validation", "test"], 
                         help="Run predictions on a specific split")
-    parser.add_argument("--model_name", type=str, default="TinyLlama/TinyLlama-1.1B-Chat-v1.0", 
-                        help="HuggingFace model name for generation")
+    parser.add_argument("--llm", type=str, default="tinyllama", 
+                        choices=["tinyllama", "mistral", "phi3"],
+                        help="LLM to use: tinyllama (1.1B baseline), mistral (7B best), phi3 (3.8B balanced)")
+    parser.add_argument("--model_name", type=str, default=None, 
+                        help="Custom HuggingFace model ID (overrides --llm)")
     
     args = parser.parse_args()
     
@@ -151,8 +154,14 @@ def main() -> None:
             bm25 = None
             bm25_corpus = []
         
-        # Initialize Generator
-        generator = RAGGenerator(model_name=args.model_name)
+        # Initialize Generator with selected LLM
+        if args.model_name:
+            # Custom model ID provided
+            generator = RAGGenerator(model_name=args.model_name)
+        else:
+            # Use preset model (tinyllama, mistral, phi3)
+            generator = RAGGenerator(model_name=args.llm)
+        logger.info(f"Using LLM: {generator.model_id}")
         
         # 1. Single Query Mode
         if args.query:
