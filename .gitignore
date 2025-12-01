@@ -1,0 +1,41 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+env/
+.env/
+
+# IDE
+.vscode/
+.idea/
+
+# Index files (large binaries - regenerate, don't commit)
+*.pkl
+*.pickle
+*.faiss
+*.index
+
+# Data files
+*.parquet
+*.arrow
+data/
+
+# Model weights (download, don't commit)
+models/
+*.bin
+*.safetensors
+
+# Output files
+output/
+*.log
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS files
+Thumbs.db
+.DS_Store
+

@@ -1,0 +1,31 @@
+{
+  "experiment": "LLM Comparison for RAG QA",
+  "retriever": "BM25 (10k docs)",
+  "reranker": "cross-encoder/ms-marco-MiniLM-L-6-v2",
+  "eval_samples": 50,
+  "models": [
+    {
+      "name": "TinyLlama-1.1B-Chat",
+      "params": "1.1B",
+      "em": 39.80,
+      "f1": 44.36,
+      "winner": true
+    },
+    {
+      "name": "Qwen2-1.5B-Instruct",
+      "params": "1.5B",
+      "em": 24.00,
+      "f1": 28.80,
+      "winner": false
+    },
+    {
+      "name": "microsoft/phi-2",
+      "params": "2.7B",
+      "em": 18.00,
+      "f1": 28.04,
+      "winner": false
+    }
+  ],
+  "conclusion": "Smaller task-optimized model outperforms larger general models on extractive QA"
+}
+
