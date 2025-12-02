@@ -1,0 +1,31 @@
+{
+  "experiment": "LLM Comparison for RAG QA (Cursor Automated)",
+  "retriever": "BM25 (10k docs)",
+  "reranker": "cross-encoder/ms-marco-MiniLM-L-6-v2",
+  "eval_samples": 50,
+  "timestamp": "2025-12-02T17:49:04.486099",
+  "models": [
+    {
+      "name": "TinyLlama-1.1B-Chat",
+      "params": "1.1B",
+      "em": 38.0,
+      "f1": 39.64,
+      "winner": false
+    },
+    {
+      "name": "Qwen2-1.5B-Instruct",
+      "params": "1.5B",
+      "em": 44.0,
+      "f1": 46.51,
+      "winner": true
+    },
+    {
+      "name": "microsoft/phi-2",
+      "params": "2.7B",
+      "em": 32.0,
+      "f1": 38.1,
+      "winner": false
+    }
+  ],
+  "conclusion": "Qwen2-1.5B-Instruct achieves the best performance. Smaller task-optimized models can outperform larger general models on extractive QA when using appropriate prompt engineering."
+}
