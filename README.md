@@ -14,7 +14,7 @@ This project implements a **Retrieval-Augmented Generation (RAG)** system for Op
 
 *Evaluated on TriviaQA validation set (rc.wikipedia configuration)*
 
-### 🔬 LLM Comparison Experiment (50 samples)
+### 🔬 LLM Comparison Experiment (500 samples)
 
 We tested different LLMs to find the best generator for our RAG pipeline:
 
@@ -105,7 +105,7 @@ print(f"Answer: {answer}")
 from src.evaluation import evaluate_predictions
 from tqdm import tqdm
 
-EVAL_SIZE = 50
+EVAL_SIZE = 500
 eval_data = test_data.select(range(EVAL_SIZE))
 
 predictions = {}
@@ -239,7 +239,7 @@ comparison_results = {
     "experiment": "LLM Comparison for RAG QA",
     "retriever": "BM25 (10k docs)",
     "reranker": "cross-encoder/ms-marco-MiniLM-L-6-v2",
-    "eval_samples": 50,
+    "eval_samples": 500,
     "models": [
         {"name": "TinyLlama-1.1B-Chat", "params": "1.1B", "em": 39.80, "f1": 44.36, "winner": True},
         {"name": "Qwen2-1.5B-Instruct", "params": "1.5B", "em": 24.00, "f1": 28.80, "winner": False},
