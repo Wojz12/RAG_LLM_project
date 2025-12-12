@@ -1,162 +1,103 @@
 # RAG_LLM_project
-📚 RAG_LLM_project
 
-This repository contains a Retrieval-Augmented Generation (RAG) project built as part of an NLP course project.
-The goal is to design and experiment with a system that combines information retrieval with Large Language Models (LLMs) to generate accurate, context-aware answers based on external data.
+📚 Retrieval-Augmented Generation (RAG) project — course project for NLP.
 
-🚀 Project Overview
+This repository contains a RAG system that combines information retrieval with Large Language Models (LLMs) to produce accurate, context-aware answers grounded in external data.
+
+## Project overview
 
 The project focuses on:
 
-implementing a RAG pipeline (Retriever + LLM),
+- Implementing a RAG pipeline (Retriever + LLM)
+- Experimenting with different retrieval strategies (e.g., BM25, embedding-based retrieval)
+- Testing and comparing LLM behavior under different prompting and retrieval setups
+- Building a modular and extensible experimental environment for RAG-based QA systems
 
-experimenting with different retrieval strategies (e.g. BM25, embeddings),
+RAG retrieves relevant documents or text chunks and passes them as context to an LLM, which reduces hallucinations and improves answer quality.
 
-testing and comparing LLM behavior under different prompting and retrieval setups,
+## Important note for reviewers
 
-building a modular and extensible experimental environment for RAG-based QA systems.
+Please focus your review on the `new_cursor_local` branch — it contains:
 
-RAG works by retrieving relevant documents or text chunks first, and then passing them as context to the LLM, significantly reducing hallucinations and improving answer quality.
-
-⭐ Important Note for Reviewers
-
-👉 Please focus mainly on the new_cursor_local branch, as it contains:
-
-the most up-to-date implementation,
-
-the latest architectural decisions,
-
-integrated retrieval + LLM logic,
-
-current experiments and improvements,
-
-the most representative version of the project.
+- The most up-to-date implementation
+- Current architectural decisions
+- Integrated retrieval + LLM logic
+- Latest experiments and improvements
 
 Other branches are experimental or exploratory.
 
-🌳 Branch Structure
-🔹 main
+## Branch structure
 
-The base and stable branch of the repository.
-Contains the initial structure, notebooks, and general project setup.
+- main  
+  The base and stable branch containing the initial structure, notebooks, and general project setup.
 
-⭐ new_cursor_local (PRIMARY BRANCH FOR REVIEW)
+- new_cursor_local (PRIMARY BRANCH FOR REVIEW)  
+  Main development branch and the most representative version for evaluation. Includes:
+  - The latest RAG pipeline implementation
+  - Improved local context/index management
+  - Refined retrieval logic
+  - Integration with LLMs
+  - Updated experiments and utilities
 
-This is the main development branch and the most important one for evaluation.
+- testy_LLM  
+  Dedicated to LLM testing: prompt experiments, sanity checks, and comparisons of prompting strategies.
 
-It includes:
+- experiment/better-llm  
+  Experimental ideas aimed at improving LLM performance (alternate prompts, model configurations, etc.).
 
-the latest RAG pipeline implementation,
+- BM25-Retriever  
+  BM25-based retriever implementation for comparison with embedding-based approaches.
 
-improved local context/index management,
+- File-Search-Tool-Google  
+  Experimental work on file search and indexing tools inspired by Google-style search and document exploration.
 
-refined retrieval logic,
+## How the RAG pipeline works
 
-integration with LLMs,
+1. Data ingestion (documents, text files, notebooks, etc.)
+2. Indexing / retrieval setup (BM25 or embeddings)
+3. User query
+4. Relevant context retrieval
+5. Context + query passed to the LLM
+6. LLM generates a grounded, context-aware answer
 
-updated experiments and utilities,
+This lets the model answer based on real data rather than relying solely on parametric knowledge.
 
-code prepared for testing and further experimentation.
+## Example setup (general)
 
-✅ This branch best represents the final state of the project.
+1. Clone the repository
+   git clone https://github.com/Wojz12/RAG_LLM_project.git
 
-🔹 testy_LLM
+2. Switch to the main development branch
+   git checkout new_cursor_local
 
-Dedicated to LLM testing:
+3. Install dependencies
+   pip install -r requirements.txt
 
-prompt experiments,
+4. Run tests (example)
+   pytest
 
-quality checks of generated answers,
-
-functional and sanity tests,
-
-comparison of different prompting strategies.
-
-This branch focuses on evaluating how the LLM behaves under different conditions.
-
-🔹 experiment/better-llm
-
-Contains experimental ideas aimed at improving LLM performance, such as:
-
-alternative prompting strategies,
-
-different model configurations,
-
-exploratory improvements to generation quality.
-
-🔹 BM25-Retriever
-
-Implements and tests a BM25-based retriever:
-
-classical keyword-based retrieval,
-
-used for comparison with embedding-based approaches,
-
-helpful for benchmarking retrieval quality.
-
-🔹 File-Search-Tool-Google
-
-Experimental branch for file search and indexing tools, inspired by Google-style search mechanisms and document exploration.
-
-🧠 How the RAG Pipeline Works
-
-Data ingestion (documents, text files, notebooks, etc.)
-
-Indexing / retrieval setup (BM25 or embeddings)
-
-User query
-
-Relevant context retrieval
-
-Context + query passed to the LLM
-
-LLM generates a grounded, context-aware answer
-
-This approach allows the model to base its answers on real data instead of relying only on parametric knowledge.
-
-🧪 Testing
-
-LLM-focused tests are located mainly in the testy_LLM branch.
-
-Integrated retrieval + generation tests and experiments are present in new_cursor_local.
-
-Testing ensures:
-
-correctness of the RAG pipeline,
-
-reasonable answer quality,
-
-robustness to different queries and edge cases.
-
-📦 Example Setup (General)
-# Clone the repository
-git clone https://github.com/Wojz12/RAG_LLM_project.git
-
-# Switch to the main development branch
-git checkout new_cursor_local
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Run tests (example)
-pytest
-
-# Run a sample RAG query
-python run_rag.py --query "Your question here"
-
+5. Run a sample RAG query (example)
+   python run_rag.py --query "Your question here"
 
 (Commands may vary depending on the current scripts and structure in the branch.)
 
-🎯 Evaluation Focus
+## Testing
 
-When reviewing the project, please consider:
+- LLM-focused tests are mainly in the `testy_LLM` branch.
+- Integrated retrieval + generation tests and experiments are present in `new_cursor_local`.
 
-the design of the RAG pipeline,
+Testing ensures correctness of the RAG pipeline, reasonable answer quality, and robustness to different queries and edge cases.
 
-retrieval → LLM integration,
+## Evaluation focus
 
-clarity and modularity of the code,
+When reviewing the project, consider:
 
-quality and structure of LLM tests,
+- Design of the RAG pipeline
+- Retrieval → LLM integration
+- Clarity and modularity of the code
+- Quality and structure of LLM tests
+- Experimental depth and reasoning behind design choices
 
-experimental depth and reasoning behind design choices.
+## Contributing
+
+Contributions, bug reports, and suggestions are welcome. Please open issues or pull requests against the `new_cursor_local` branch for development-related changes.
